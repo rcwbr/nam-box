@@ -1,0 +1,10 @@
+services:
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"
+  mdns:
+    image: flungo/avahi
+    environment:
+      - SERVER_HOST_NAME=nam-box
+    network_mode: host
