@@ -1,15 +1,17 @@
 services:
   mod-host:
-    image: mod-host@sha256:fb275099650f208ecdeb4637371a0aebb1d7edd560fad08daabb1bd60dbfc3bc
+    image: mod-host:initial-services1
+    entrypoint: sleep 100
   mod-ui:
-    image: mod-ui@sha256:0ec3b3be2c1a7b4a88e002afb71fef717b889e431e0bc7f25abb40830d5f28eb
+    image: mod-ui:initial-services1
     ports:
       - "80:8888"
     pull_policy: never
     environment:
       - MOD_DEV_ENVIRONMENT=0
-  # bluetooth-host:
-  #   image: nam-bluetooth:latest
+  bluetooth-host:
+    image: nam-bluetooth:initial-services1
+    entrypoint: sleep 100
   mdns:
     image: flungo/avahi@sha256:803451d0200610298d30d3151240f47c5de4d6558f6a3a36340692048cdf28e0
     environment:
