@@ -1,6 +1,6 @@
 services:
   mod-host:
-    image: mod-host@sha256:62c42f05a78f904ea013d8e9fac2444884a79d4dcf1b53911a6b5ff014aaa97b
+    image: mod-host:latest
     entrypoint: sleep 100
   mod-ui:
     image: mod-ui:latest
