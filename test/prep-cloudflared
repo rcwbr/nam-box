@@ -1,0 +1,38 @@
+#!/bin/bash
+
+set -e
+
+container_cloudflared() {
+  docker run \
+  --name prep-cloudflared \
+  --rm \
+  -it \
+  -v "$(pwd)/test/.cloudflared:/home/nonroot/.cloudflared" \
+  --entrypoint cloudflared \
+  cloudflare/cloudflared:2026.3.0 \
+  "$@"
+}
+
+# container_cloudflared tunnel login
+
+# container_cloudflared tunnel create "$HOSTNAME"
+
+# Using nginx for envsubst just because it is part of the application anyway
+docker run \
+  --name prep-cloudflared-envsubst \
+  --rm \
+  -it \
+  -e NAM_BOX_TUNNEL_DOMAIN \
+  --entrypoint sh \
+  -v "$(pwd)/test/.cloudflared:$(pwd)/test/.cloudflared" \
+  -w "$(pwd)/test/.cloudflared" \
+  nginx:1.30.0-alpine \
+  -c ' \
+    export TUNNEL_FILE=$(ls *.json) \
+    && export TUNNEL_ID=${TUNNEL_FILE%".json"} \
+    && envsubst < template.config.yml > config.yml \
+  '
+
+container_cloudflared tunnel ingress validate
+container_cloudflared tunnel route dns "$HOSTNAME" "nam-box-dev-webplayer.${NAM_BOX_TUNNEL_DOMAIN}"
+container_cloudflared tunnel route dns "$HOSTNAME" "nam-box-dev-jacktrip.${NAM_BOX_TUNNEL_DOMAIN}"

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JackTrip WebRTC Player</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemUI, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        .container {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        h1 {
+            margin-top: 0;
+            color: #00d9ff;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+            background: #00d9ff;
+            border: none;
+            border-radius: 6px;
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 10px;
+            font-size: 14px;
+            width: 300px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0f0f23;
+            color: #fff;
+        }
+        #status {
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        #status.connected { background: #1b4332; color: #52ff7d; }
+        #status.disconnected { background: #7f1d1d; color: #fca5a5; }
+        #status.connecting { background: #78350f; color: #fdba74; }
+        .volume-control {
+            margin-top: 20px;
+        }
+        .volume-control label {
+            display: inline-block;
+            width: 80px;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 10px;
+            background: #0f0f23;
+            border-radius: 6px;
+            font-size: 14px;
+            color: #888;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JackTrip WebRTC Player</h1>
+
+        <div class="controls">
+            <input type="text" id="serverUrl" placeholder="wss://host:port/webrtc" value="wss://localhost:4464/webrtc">
+            <div style="font-size: 12px; color: #888; margin-top: 5px;">
+                Note: Port 4464 must be forwarded. In Codespaces use: wss://[codespace-name]-4464.app.github.dev/webrtc
+            </div>
+            <div style="font-size: 12px; color: #888; margin-top: 5px;">
+                Note: Port 4464 must be forwarded from the host. WebRTC needs TCP for WebSocket signaling.
+            </div>
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+        </div>
+
+        <div id="status" class="disconnected">Disconnected</div>
+
+        <div class="volume-control">
+            <label for="volume">Volume:</label>
+            <input type="range" id="volume" min="0" max="100" value="80">
+            <span id="volumeValue">80%</span>
+        </div>
+
+        <div class="info">
+            <strong>Connection Flow:</strong>
+            <ol style="margin: 5px 0; padding-left: 20px;">
+                <li>WebSocket connection to signaling server</li>
+                <li>SDP offer/answer exchange</li>
+                <li>WebRTC PeerConnection established</li>
+                <li>Audio received via data channel</li>
+            </ol>
+        </div>
+        <div id="debugLog" style="margin-top: 15px; padding: 10px; background: #0a0a1a; border-radius: 6px; font-family: monospace; font-size: 11px; color: #aaa; max-height: 200px; overflow-y: auto;"></div>
+    </div>
+
+    <script>
+        const AUDIO_CONFIG = {
+            sampleRate: 48000,
+            channels: 2,
+            bufferFrameCount: 256,
+            bitResolution: 16
+        };
+
+        let audioContext;
+        let scriptProcessor;
+        let gainNode;
+        let outputBuffer = [];
+        let isConnected = false;
+
+        let peerConnection;
+        let dataChannel;
+        let signalingSocket;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const serverUrlInput = document.getElementById('serverUrl');
+        const statusDiv = document.getElementById('status');
+        const volumeSlider = document.getElementById('volume');
+        const volumeValue = document.getElementById('volumeValue');
+        const debugLog = document.getElementById('debugLog');
+
+        function log(message) {
+            const timestamp = new Date().toISOString().split('T')[1].split('.')[0];
+            const entry = document.createElement('div');
+            entry.textContent = `[${timestamp}] ${message}`;
+            debugLog.appendChild(entry);
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+
+        function sendSignalingMessage(obj) {
+            const json = JSON.stringify(obj);
+            signalingSocket.send(json);
+        }
+
+        function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: AUDIO_CONFIG.sampleRate
+                });
+
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = volumeSlider.value / 100;
+                gainNode.connect(audioContext.destination);
+
+                scriptProcessor = audioContext.createScriptProcessor(
+                    AUDIO_CONFIG.bufferFrameCount,
+                    0,
+                    AUDIO_CONFIG.channels
+                );
+
+                scriptProcessor.onaudioprocess = (event) => {
+                    if (outputBuffer.length >= AUDIO_CONFIG.bufferFrameCount) {
+                        for (let channel = 0; channel < AUDIO_CONFIG.channels; channel++) {
+                            const output = event.outputBuffer.getChannelData(channel);
+                            for (let i = 0; i < AUDIO_CONFIG.bufferFrameCount; i++) {
+                                output[i] = outputBuffer.shift();
+                            }
+                        }
+                    } else {
+                        for (let channel = 0; channel < AUDIO_CONFIG.channels; channel++) {
+                            event.outputBuffer.getChannelData(channel).fill(0);
+                        }
+                    }
+                };
+
+                scriptProcessor.connect(gainNode);
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize audio:', error);
+                return false;
+            }
+        }
+
+        function setStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+        }
+
+        function handleDataChannelMessage(event) {
+            if (event.data instanceof ArrayBuffer) {
+                const samples = decodeAudioSamples(event.data);
+                outputBuffer.push(...samples);
+            }
+        }
+
+        function decodeAudioSamples(arrayBuffer) {
+            const samples = [];
+            const int16 = new Int16Array(arrayBuffer);
+            for (let i = 0; i < int16.length; i++) {
+                samples.push(int16[i] / 32768.0);
+            }
+            return samples;
+        }
+
+        async function connect() {
+            try {
+                log('Starting connection...');
+                if (!initAudio()) {
+                    throw new Error('Failed to initialize audio');
+                }
+
+                setStatus('Connecting...', 'connecting');
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+
+                const serverUrl = serverUrlInput.value;
+                log('Server URL: ' + serverUrl);
+                log('WebSocket supported: ' + ('WebSocket' in window));
+
+                signalingSocket = new WebSocket(serverUrl);
+                log('WebSocket object created, readyState: ' + signalingSocket.readyState);
+
+                signalingSocket.onopen = () => {
+                    console.log('Signaling connection established');
+                    console.log('WebSocket readyState:', signalingSocket.readyState);
+                    console.log('WebSocket protocol:', signalingSocket.protocol);
+                    console.log('WebSocket extensions:', signalingSocket.extensions);
+                    log('WebSocket opened - protocol: ' + signalingSocket.protocol);
+                    setStatus('WebSocket connected, sending protocol detect...', 'connecting');
+                    // Send protocol detection message first (required by JackTrip server)
+                    const protocolMsg = {
+                        type: 'protocol',
+                        protocol: 'webrtc',
+                        client_name: 'webplayer',
+                        version: 1
+                    };
+                    sendSignalingMessage(protocolMsg);
+                    // Immediately proceed to create offer - server doesn't respond to protocol detect
+                    setTimeout(() => createAndSendOffer(), 10);
+                };
+
+                signalingSocket.onmessage = async (event) => {
+                    console.log('WebSocket message received:', {
+                        dataType: typeof event.data,
+                        preview: typeof event.data === 'string' ? event.data.substring(0, 100) : '(binary)'
+                    });
+
+                    let message;
+                    try {
+                        // Server sends JSON in text frames
+                        if (typeof event.data === 'string') {
+                            message = JSON.parse(event.data);
+                        } else {
+                            console.error('Unexpected binary message:', event.data);
+                            return;
+                        }
+                    } catch (parseError) {
+                        console.error('Failed to parse JSON message:', parseError);
+                        return;
+                    }
+
+                    console.log('Parsed signaling message type:', message.type);
+                    await handleSignalingMessage(message);
+                };
+
+                signalingSocket.onerror = (error) => {
+                    const errorDetails = {
+                        url: serverUrl,
+                        readyState: signalingSocket.readyState,
+                        bufferedAmount: signalingSocket.bufferedAmount,
+                        timestamp: new Date().toISOString()
+                    };
+                    console.error('Signaling WebSocket error:', error, errorDetails);
+                    console.error('ReadyState values: CONNECTING=0, OPEN=1, CLOSING=2, CLOSED=3');
+                    log('WebSocket error: ' + JSON.stringify(errorDetails));
+                    let errorMsg = 'Connection error';
+                    if (signalingSocket.readyState === WebSocket.CONNECTING) {
+                        errorMsg = 'Check if the server is running. TCP port 4464 must be forwarded. ReadyState: CONNECTING';
+                    } else if (signalingSocket.readyState === WebSocket.CLOSED) {
+                        errorMsg = 'Connection failed (server not reachable or TLS error). Check port 4464 is forwarded and SSL certs are valid.';
+                    }
+                    setStatus(errorMsg, 'disconnected');
+                    resetConnection();
+                };
+
+                signalingSocket.onclose = (event) => {
+                    console.log('WebSocket closed:', {
+                        code: event.code,
+                        reason: event.reason,
+                        wasClean: event.wasClean
+                    });
+                    if (isConnected) {
+                        setStatus('Connection closed: ' + (event.reason || 'Unknown'), 'disconnected');
+                        resetConnection();
+                    }
+                };
+
+            } catch (error) {
+                console.error('Connection failed:', error);
+                setStatus('Connection failed: ' + error.message, 'disconnected');
+                resetConnection();
+            }
+        }
+
+        async function handleSignalingMessage(message) {
+            log('Processing message type: ' + message.type);
+            if (message.type === 'answer') {
+                log('Received SDP answer from server');
+                await handleAnswer(message.sdp);
+            } else if (message.type === 'ice') {
+                try {
+                    await peerConnection.addIceCandidate(
+                        new RTCIceCandidate({
+                            candidate: message.candidate,
+                            sdpMid: message.sdpMid,
+                            sdpMLineIndex: message.sdpMLineIndex
+                        })
+                    );
+                    log('Added ICE candidate');
+                } catch (error) {
+                    console.error('Error adding ICE candidate:', error);
+                    log('Error adding ICE candidate: ' + error);
+                }
+            } else if (message.type === 'hangup') {
+                log('Received hangup from server');
+                disconnect();
+            } else if (message.type === 'error') {
+                log('Server error: ' + message.message);
+            } else {
+                log('Unknown message type: ' + message.type + ' - ignoring');
+            }
+        }
+
+        async function createAndSendOffer() {
+            log('Creating PeerConnection and sending offer...');
+            setStatus('Creating WebRTC offer...', 'connecting');
+
+            peerConnection = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' }
+                ]
+            });
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    log('Sending ICE candidate');
+                    sendSignalingMessage({
+                        type: 'ice',
+                        candidate: event.candidate.candidate,
+                        sdpMid: event.candidate.sdpMid,
+                        sdpMLineIndex: event.candidate.sdpMLineIndex
+                    });
+                }
+            };
+
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE state:', peerConnection.iceConnectionState);
+                log('ICE connection state: ' + peerConnection.iceConnectionState);
+                if (peerConnection.iceConnectionState === 'connected') {
+                    isConnected = true;
+                    setStatus('Connected - Receiving audio', 'connected');
+                    log('PEER CONNECTION ESTABLISHED - AUDIO SHOULD NOW BE RECEIVED');
+                } else if (peerConnection.iceConnectionState === 'failed') {
+                    setStatus('Connection failed', 'disconnected');
+                    log('ICE connection failed');
+                    resetConnection();
+                }
+            };
+
+            log('Creating data channel...');
+            dataChannel = peerConnection.createDataChannel('audio', {
+                ordered: false,
+                maxRetransmits: 0
+            });
+
+            dataChannel.onopen = () => {
+                console.log('Data channel open');
+                log('DATA CHANNEL OPEN - READY FOR AUDIO');
+            };
+
+            dataChannel.onmessage = handleDataChannelMessage;
+            dataChannel.onerror = (error) => {
+                console.error('Data channel error:', error);
+                log('Data channel error: ' + error);
+            };
+
+            dataChannel.onclose = () => {
+                console.log('Data channel closed');
+                log('Data channel closed');
+            };
+
+            log('Creating offer...');
+            const offer = await peerConnection.createOffer();
+            log('Setting local description...');
+            await peerConnection.setLocalDescription(offer);
+
+            log('Sending offer...');
+            sendSignalingMessage({
+                type: 'offer',
+                sdp: offer.sdp
+            });
+        }
+
+        async function handleAnswer(sdp) {
+            log('Received SDP answer from server');
+            setStatus('Processing answer...', 'connecting');
+
+            log('Setting remote description...');
+            await peerConnection.setRemoteDescription({
+                type: 'answer',
+                sdp: sdp
+            });
+            log('Answer applied - waiting for ICE connection...');
+        }
+
+        function disconnect() {
+            if (dataChannel) {
+                dataChannel.close();
+            }
+            if (peerConnection) {
+                peerConnection.close();
+            }
+            if (signalingSocket) {
+                signalingSocket.close();
+            }
+            if (scriptProcessor) {
+                scriptProcessor.disconnect();
+            }
+            outputBuffer = [];
+            isConnected = false;
+            resetConnection();
+            setStatus('Disconnected', 'disconnected');
+        }
+
+        function resetConnection() {
+            isConnected = false;
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+        }
+
+        volumeSlider.addEventListener('input', () => {
+            volumeValue.textContent = volumeSlider.value + '%';
+            if (gainNode) {
+                gainNode.gain.value = volumeSlider.value / 100;
+            }
+        });
+
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+
+        window.addEventListener('beforeunload', () => {
+            disconnect();
+        });
+    </script>
+</body>
+</html>

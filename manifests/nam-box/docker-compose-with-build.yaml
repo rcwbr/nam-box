@@ -1,0 +1,73 @@
+services:
+  # bluetooth-host:
+  #   image: nam-bluetooth:latest
+  #   entrypoint: sleep 200
+  #   network_mode: "host"
+  #   cap_add:
+  #     - NET_ADMIN
+  # jack:
+  #   image: ghcr.io/rcwbr/nam-box-jack:local
+  #   entrypoint: sleep 100
+  #   devices:
+  #     - "/dev/snd:/dev/snd"
+  #   cap_add:
+  #     - SYS_NICE
+  #     - SYS_RAWIO
+  #     - IPC_LOCK
+  #   security_opt:
+  #     - seccomp=unconfined
+  #   ulimits:
+  #     memlock: -1
+  # mdns:
+  #   image: flungo/avahi@sha256:803451d0200610298d30d3151240f47c5de4d6558f6a3a36340692048cdf28e0
+  #   environment:
+  #     - SERVER_HOST_NAME=nam-box
+  #   network_mode: host
+  # mod-host:
+  #   image: ghcr.io/rcwbr/nam-box-mod-host:local
+  #   entrypoint: sleep 10
+  # mod-ui:
+  #   image: mod-ui:latest
+  #   ports:
+  #     - "80:8888"
+  #   pull_policy: never
+  #   environment:
+  #     - MOD_DEV_ENVIRONMENT=0
+  webplayer:
+    image: ghcr.io/rcwbr/nam-box-webplayer:local
+    ports:
+      - "8080:80"
+      - "8443:443"
+    volumes:
+      - nambox-ssl:/etc/nginx/ssl
+    environment:
+      - CODESPACE_NAME=${CODESPACE_NAME}
+    healthcheck:
+      test: ["CMD", "test", "-f", "/etc/nam-box/ssl/server.crt"]
+      interval: 2s
+      timeout: 5s
+      retries: 10
+  jacktrip-hub:
+    build:
+      context: ../../jacktrip
+      dockerfile: Dockerfile
+    depends_on:
+      # Wait for SSL cert files created by webplayer
+      webplayer:
+        condition: service_healthy
+    network_mode: host
+    shm_size: 384M
+    privileged: true
+    environment:
+      JACKTRIP_OPTS: --jacktripserver --timeout --zerounderrun --hubpatch 4 --bufstrategy 4 --queue auto --certfile /etc/nam-box/ssl/server.crt --keyfile /etc/nginx/ssl/server.key --iceservers "stun:stun.l.google.com:19302"
+    volumes:
+      - nambox-ssl:/etc/nginx/ssl
+  jacktrip-client:
+    image: jacktrip/jacktrip
+    shm_size: 384M
+    privileged: true
+    environment:
+      JACKTRIP_OPTS: --pingtoserver jacktrip-hub
+
+volumes:
+  nambox-ssl:

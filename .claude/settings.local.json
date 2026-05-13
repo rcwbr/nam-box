@@ -1,0 +1,49 @@
+{
+  "env": {
+    "ANTHROPIC_API_KEY": "",
+    "ANTHROPIC_BASE_URL": "https://openrouter.ai/api"
+  },
+  "model": "poolside/laguna-m.1:free",
+  "permissions": {
+    "additionalDirectories": [
+      "/workspaces/nam-box/services"
+    ],
+    "allow": [
+      "Bash(tar -tf /workspaces/nam-box/mod-ui.tar)",
+      "Bash(tar -xO blobs/sha256/965454ed7847c3db750ea750dfbe01cf9233456e7fbe3572ffc8e34af7f225fb)",
+      "WebSearch",
+      "Bash(tar -tf /workspaces/nam-box/mod-ui-save.tar)",
+      "Bash(tar -xOf /workspaces/nam-box/mod-ui.tar repositories)",
+      "Bash(grep -E '^[^/]+$')",
+      "Bash(tar -xOf /workspaces/nam-box/mod-ui.tar index.json)",
+      "Bash(tar -xOf /workspaces/nam-box/mod-ui-save.tar index.json)",
+      "Bash(tar -xOf /workspaces/nam-box/mod-ui.tar manifest.json)",
+      "Bash(tar -xOf /workspaces/nam-box/mod-ui-save.tar manifest.json)",
+      "Bash(tar -xOf /workspaces/nam-box/mod-ui.tar oci-layout)",
+      "Bash(pip show *)",
+      "Bash(python -c \"import mender_docker_lifecycle_helper; print\\(mender_docker_lifecycle_helper.__file__\\)\")",
+      "Bash(python -c \"import sys; print\\('\\\\n'.join\\(sys.path\\)\\)\")",
+      "Bash(git submodule *)",
+      "WebFetch(domain:docs.mender.io)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(python -m pytest tests/ -v)",
+      "Bash(python -c \"from mender_docker_lifecycle_helper.helper import LifecycleHelper; print\\('Import successful'\\)\")",
+      "Bash(python -m py_compile src/mender_docker_lifecycle_helper/helper.py)",
+      "Bash(tar -tf /workspaces/nam-box/nam-bluetooth.tar)",
+      "Bash(xargs ls *)",
+      "Bash(python3 -c \"import tarfile; print\\('tarfile module available'\\); print\\(f'filter param supported: {hasattr\\(tarfile, \\\\\"TarInfo\\\\\"\\)}'\\)\")",
+      "Bash(grep -r 'get\\(\"status\", {}\\)' /workspaces/nam-box/subdirs/mender-docker-lifecycle-helper --include=\"*.py\")",
+      "Bash(python3 -)",
+      "Bash(pip install *)",
+      "Bash(tar -tvf /workspaces/nam-box/nam-bluetooth.tar)",
+      "Bash(tar -xOf /workspaces/nam-box/nam-bluetooth.tar index.json)",
+      "Bash(mkdir -p /tmp/test_extract)",
+      "Read(//tmp/**)",
+      "Bash(tar -xOf /workspaces/nam-box/nam-bluetooth.tar blobs/sha256/8b883e9396b8014450d6ec4bf1d95af610993c3a7874f6375a6ee26b9a545102)",
+      "Bash(tar -tzf nam-bluetooth.tar)",
+      "Bash(tar -tf nam-bluetooth.tar)",
+      "Bash(mkdir -p /workspaces/nam-box/services/webplayer && ls -la /workspaces/nam-box/services/jack/)",
+      "Bash(docker buildx *)"
+    ]
+  }
+}

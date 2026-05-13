@@ -1,0 +1,7 @@
+#!/bin/bash
+
+set -e
+
+# docker buildx create --bootstrap --use --driver docker-container
+# docker buildx bake
+docker buildx bake webplayer $@

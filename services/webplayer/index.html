@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JackTrip WebTransport Player</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemUI, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        .container {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        h1 {
+            margin-top: 0;
+            color: #00d9ff;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+            background: #00d9ff;
+            border: none;
+            border-radius: 6px;
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 10px;
+            font-size: 14px;
+            width: 300px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0f0f23;
+            color: #fff;
+        }
+        #status {
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        #status.connected { background: #1b4332; color: #52ff7d; }
+        #status.disconnected { background: #7f1d1d; color: #fca5a5; }
+        #status.connecting { background: #78350f; color: #fdba74; }
+        .volume-control {
+            margin-top: 20px;
+        }
+        .volume-control label {
+            display: inline-block;
+            width: 80px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JackTrip WebTransport Player</h1>
+
+        <div class="controls">
+            <input type="text" id="serverUrl" placeholder="https://server.example.com:4464" value="https://localhost:4464">
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+        </div>
+
+        <div id="status" class="disconnected">Disconnected</div>
+
+        <div class="volume-control">
+            <label for="volume">Volume:</label>
+            <input type="range" id="volume" min="0" max="100" value="80">
+            <span id="volumeValue">80%</span>
+        </div>
+    </div>
+
+    <script>
+        // Audio configuration matching JackTrip defaults
+        const CONFIG = {
+            sampleRate: 48000,
+            channels: 2,
+            bufferFrameCount: 256,
+            bitResolution: 32
+        };
+
+        let audioContext;
+        let workletNode;
+        let gainNode;
+        let wt = null;
+        let stream = null;
+        let reader = null;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const serverUrlInput = document.getElementById('serverUrl');
+        const statusDiv = document.getElementById('status');
+        const volumeSlider = document.getElementById('volume');
+        const volumeValue = document.getElementById('volumeValue');
+
+        // AudioWorklet processor code
+        const audioWorkletCode = `
+            class AudioProcessor extends AudioWorkletProcessor {
+                constructor() {
+                    super();
+                    this.outputBuffer = [];
+                    this.port.onmessage = (event) => {
+                        if (event.data.samples) {
+                            this.outputBuffer.push(...event.data.samples);
+                        }
+                    };
+                }
+
+                process(outputs, inputs, parameters) {
+                    if (!outputs || !outputs[0] || !outputs[0].length) {
+                        return true;
+                    }
+
+                    const output = outputs[0];
+                    const channelCount = output.length;
+
+                    if (channelCount === 0) {
+                        return true;
+                    }
+
+                    const samplesPerChannel = output[0].length;
+
+                    if (this.outputBuffer.length >= samplesPerChannel) {
+                        for (let channel = 0; channel < channelCount; channel++) {
+                            const channelData = output[channel];
+                            for (let i = 0; i < samplesPerChannel; i++) {
+                                channelData[i] = this.outputBuffer.shift();
+                            }
+                        }
+                    } else {
+                        for (let channel = 0; channel < channelCount; channel++) {
+                            output[channel].fill(0);
+                        }
+                    }
+
+                    return true;
+                }
+            }
+
+            registerProcessor('audio-processor', AudioProcessor);
+        `;
+
+        async function initAudio() {
+            try {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: CONFIG.sampleRate
+                });
+
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = volumeSlider.value / 100;
+                gainNode.connect(audioContext.destination);
+
+                // Register AudioWorklet module
+                const blob = new Blob([audioWorkletCode], { type: 'application/javascript' });
+                const url = URL.createObjectURL(blob);
+                await audioContext.audioWorklet.addModule(url);
+
+                workletNode = new AudioWorkletNode(audioContext, 'audio-processor');
+                workletNode.connect(gainNode);
+
+                URL.revokeObjectURL(url);
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize audio:', error);
+                return false;
+            }
+        }
+
+        function feedAudio(samples) {
+            if (workletNode) {
+                workletNode.port.postMessage({ samples });
+            }
+        }
+
+        function setStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+        }
+
+        function decodeFloat32Samples(arrayBuffer) {
+            const float32 = new Float32Array(arrayBuffer);
+            return Array.from(float32);
+        }
+
+        async function connect() {
+            try {
+                if (!initAudio()) {
+                    throw new Error('Failed to initialize audio');
+                }
+
+                setStatus('Connecting...', 'connecting');
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+
+                let url = serverUrlInput.value;
+
+                // WebTransport connection
+                console.log('Connecting to WebTransport URL:', url);
+
+                wt = new WebTransport(url, {
+                    allowPooling: true
+                });
+
+                wt.onstatechange = () => {
+                    console.log('WebTransport state:', wt.state);
+                    if (wt.state === 'closed' || wt.state === 'error') {
+                        setStatus('Connection closed', 'disconnected');
+                        resetConnection();
+                    }
+                };
+
+                wt.onerror = (error) => {
+                    console.error('WebTransport error:', error);
+                };
+
+                try {
+                    await Promise.race([
+                        wt.ready,
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('Connection timeout')), 10000)
+                        )
+                    ]);
+                    setStatus('Connected - Receiving audio', 'connected');
+                } catch (e) {
+                    console.error('WebTransport ready failed:', e);
+                    throw e;
+                }
+
+                // Create bidirectional stream
+                stream = await wt.createBidirectionalStream();
+                reader = stream.readable.getReader();
+
+                // Start reading audio data
+                readLoop();
+
+            } catch (error) {
+                console.error('Connection failed:', error);
+                let errorMsg = error.message || 'Unknown error';
+                if (errorMsg.includes('ERR_METHOD_NOT_SUPPORTED')) {
+                    errorMsg = 'WebTransport not supported. Check that server is running and supports WebTransport.';
+                } else if (errorMsg.includes('ERR_CONNECTION_REFUSED')) {
+                    errorMsg = 'Connection refused. Check server URL and if port is forwarded.';
+                }
+                setStatus('Connection failed: ' + errorMsg, 'disconnected');
+                resetConnection();
+            }
+        }
+
+        async function readLoop() {
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) {
+                        console.log('Stream closed');
+                        break;
+                    }
+
+                    if (value) {
+                        const samples = decodeFloat32Samples(value);
+                        feedAudio(samples);
+                    }
+                }
+            } catch (error) {
+                console.error('Read error:', error);
+                setStatus('Stream error', 'disconnected');
+                resetConnection();
+            }
+        }
+
+        function disconnect() {
+            if (reader) {
+                reader.cancel();
+                reader = null;
+            }
+            if (stream) {
+                stream.close();
+                stream = null;
+            }
+            if (wt) {
+                wt.close();
+                wt = null;
+            }
+            if (workletNode && audioContext) {
+                workletNode.disconnect();
+            }
+            resetConnection();
+            setStatus('Disconnected', 'disconnected');
+        }
+
+        function resetConnection() {
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+        }
+
+        volumeSlider.addEventListener('input', () => {
+            volumeValue.textContent = volumeSlider.value + '%';
+            if (gainNode) {
+                gainNode.gain.value = volumeSlider.value / 100;
+            }
+        });
+
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+
+        window.addEventListener('beforeunload', () => {
+            disconnect();
+        });
+    </script>
+</body>
+</html>

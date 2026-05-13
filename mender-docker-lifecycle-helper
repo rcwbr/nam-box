@@ -1,0 +1,21 @@
+#!/bin/bash
+
+MDLH_IMAGE="${MDLH_IMAGE:-ghcr.io/rcwbr/mender-docker-lifecycle-helper:39-merge-2f38cf3fe20727fa9379810735a416ee2d236a7c}"
+MDLH_ARGS="${MDLH_ARGS:-}$*"
+
+# shellcheck disable=SC2086
+docker run \
+    --rm \
+    -it \
+    --name mender-docker-lifecycle-helper \
+    -e MENDER_PAT \
+    -e MENDER_HELPER_CACHE_DIR=/mender-helper-cache \
+    -e DOCKER_CONFIG_JSON="$(cat ~/.docker/config.json)" \
+    -e _MENDER_DOCKER_LIFECYCLE_HELPER_COMPLETE \
+    -e COMP_WORDS \
+    -e COMP_CWORD \
+    -v mender-helper-cache:/mender-helper-cache \
+    -v "$(pwd):$(pwd)" \
+    -w "$(pwd)" \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    "${MDLH_IMAGE}" ${MDLH_ARGS}

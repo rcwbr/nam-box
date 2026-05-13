@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -e
+
+./build
+
+MDLH_ARGS="${MDLH_ARGS:-}$*"
+
+mender-docker-lifecycle-helper \
+  --platform linux/arm64 \
+  --wait-for-deploy \
+  --device-type raspberrypi5 \
+  --device-group nam-box-test \
+  --service-file jack ./jack.tar \
+  --service-file mod-host ./mod-host.tar \
+  --log-level DEBUG \
+  "${MDLH_ARGS}" \
+  manifests/nam-box/docker-compose.yaml
+
+  # --service-file mod-host ./mod-host.tar \
+  # --service-file mod-ui ./mod-ui.tar \

@@ -5,6 +5,7 @@
   "customizations": {
     "vscode": {
       "extensions": [
+        "hashicorp.hcl",
         "ms-azuretools.vscode-docker",
         "bierner.markdown-mermaid",
         "joshbolduc.commitlint"

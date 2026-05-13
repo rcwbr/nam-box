@@ -1,0 +1,5 @@
+*.mender
+*.tar
+test/.cloudflared/*
+!test/.cloudflared/.gitkeep
+!test/.cloudflared/template.config.yml

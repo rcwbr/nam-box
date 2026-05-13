@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -e
+
+if ! docker ps -a --format '{{.Names}}' | grep -q '^mender-client$'; then
+  docker run \
+    --rm \
+    --name mender-client-docker-launcher \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    -e MENDER_PAT="$NAM_BOX_MENDER_PAT" \
+    -e DEVICE_TYPE=virtual \
+    ghcr.io/rcwbr/mender-client-docker-launcher:0.6.2
+
+  echo "Mender client started. Ensure that the device has been accepted on the Mender server and assigned to the nam-box-test device group."
+fi
+
+./build
+
+MDLH_ARGS="${MDLH_ARGS:-}$*"
+
+mender-docker-lifecycle-helper \
+  --platform linux/arm64 \
+  --wait-for-deploy \
+  --device-type virtual \
+  --device-group nam-box-test \
+  --service-file jack ./jack.tar \
+  --service-file mod-host ./mod-host.tar \
+  --log-level DEBUG \
+  "${MDLH_ARGS}" \
+  manifests/nam-box/docker-compose.yaml
