@@ -2,20 +2,20 @@
 
 set -e
 
-./build
+docker buildx bake --allow=fs=/var/buildx-cache jack nam $@
 
 MDLH_ARGS="${MDLH_ARGS:-}$*"
 
-mender-docker-lifecycle-helper \
+./mender-docker-lifecycle-helper \
+  --no-delta \
   --platform linux/arm64 \
+  --manifest-name nam-box \
   --wait-for-deploy \
   --device-type raspberrypi5 \
   --device-group nam-box-test \
+  --service-file nam ./nam.tar \
   --service-file jack ./jack.tar \
-  --service-file mod-host ./mod-host.tar \
   --log-level DEBUG \
-  "${MDLH_ARGS}" \
-  manifests/nam-box/docker-compose.yaml
-
-  # --service-file mod-host ./mod-host.tar \
-  # --service-file mod-ui ./mod-ui.tar \
+  --cache-limit-percent 20.0 \
+  ${MDLH_ARGS} \
+  manifests/docker-compose.yaml

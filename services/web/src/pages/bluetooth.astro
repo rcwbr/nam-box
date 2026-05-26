@@ -1,0 +1,209 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="Bluetooth Devices">
+    <div class="space-y-4">
+      <h1 class="text-2xl lcd-accent tracking-widest uppercase">Bluetooth</h1>
+      <div class="lcd-divider my-3"></div>
+
+      <button id="scan-btn" class="lcd-button px-4 py-2 text-xs tracking-widest w-full">SCAN DEVICES</button>
+
+      <div id="status" class="text-xs text-lcd-600 h-4"></div>
+
+      <div id="devices-container" class="space-y-3">
+        <p class="text-xs text-lcd-600 text-center py-4">Click SCAN DEVICES to discover nearby devices</p>
+      </div>
+    </div>
+</Layout>
+
+<script>
+  interface DeviceInfo {
+    address: string;
+    name?: string | null;
+    rssi?: number | null;
+    service_uuids?: string[];
+    service_names?: string[];
+  }
+
+  interface ConnectResponse {
+    address: string;
+    status: string;
+    paired?: boolean;
+  }
+
+  let connectedDevices: Set<string> = new Set();
+
+  const scanBtn = document.getElementById('scan-btn') as HTMLButtonElement;
+  const statusEl = document.getElementById('status') as HTMLDivElement;
+  const devicesContainer = document.getElementById('devices-container') as HTMLDivElement;
+
+  function renderDevice(device: DeviceInfo): HTMLElement {
+    const isConnected = connectedDevices.has(device.address);
+
+    const deviceEl = document.createElement('div');
+    deviceEl.className = `device-box p-4 cursor-pointer border-2 rounded-sm transition-all ${
+      isConnected
+        ? 'border-green-500 bg-green-950/30'
+        : 'border-lcd-700 hover:border-lcd-500'
+    }`;
+    deviceEl.dataset.address = device.address;
+
+    const nameDisplay = device.name || 'Unknown Device';
+    const rssiDisplay = device.rssi !== null && device.rssi !== undefined ? `${device.rssi} dBm` : 'N/A';
+
+    deviceEl.innerHTML = `
+      <div>
+        <p class="text-sm lcd-text font-bold ${isConnected ? 'text-green-500' : ''}">${nameDisplay}</p>
+        ${isConnected
+          ? '<span class="led-dot ml-2" title="Connected"></span><span class="text-green-500 text-xs ml-1">connected</span>'
+          : ''
+        }
+        <p class="text-xs text-lcd-600 mt-1 font-mono">${device.address}</p>
+        <p class="text-xs text-lcd-600 mt-1">RSSI: ${rssiDisplay}</p>
+        ${device.service_names && device.service_names.length > 0
+          ? `<p class="text-xs text-lcd-700 mt-1 truncate">${device.service_names.slice(0, 2).join(', ')}</p>`
+          : ''
+        }
+      </div>
+    `;
+
+    deviceEl.addEventListener('click', () => toggleConnection(device.address));
+
+    return deviceEl;
+  }
+
+  async function scanDevices() {
+    statusEl.textContent = 'Scanning...';
+    scanBtn.setAttribute('disabled', 'true');
+
+    try {
+      const response = await fetch('/api/bluetooth-manager/scan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ timeout: 5.0 })
+      });
+
+      if (!response.ok) throw new Error('Scan failed');
+
+      const devices = await response.json();
+      renderDevices(devices);
+      statusEl.textContent = `Found ${devices.length} device(s)`;
+    } catch (error) {
+      statusEl.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      scanBtn.removeAttribute('disabled');
+    }
+  }
+
+  async function toggleConnection(address: string) {
+    const isConnected = connectedDevices.has(address);
+
+    if (isConnected) {
+      statusEl.textContent = `Disconnecting from ${address.substring(0, 8)}...`;
+      try {
+        const response = await fetch(`/api/bluetooth-manager/disconnect/${address}`, {
+          method: 'POST'
+        });
+        if (!response.ok) throw new Error('Disconnect failed');
+        connectedDevices.delete(address);
+        const deviceEl = devicesContainer.querySelector(`[data-address="${address}"]`) as HTMLElement;
+        if (deviceEl) {
+          deviceEl.className = 'device-box p-4 cursor-pointer border-2 rounded-sm border-lcd-700 hover:border-lcd-500 transition-all';
+          const nameEl = deviceEl.querySelector('p');
+          if (nameEl) nameEl.className = 'text-sm lcd-text font-bold';
+          const ledDot = deviceEl.querySelector('.led-dot');
+          const connectedText = ledDot?.nextElementSibling;
+          ledDot?.remove();
+          connectedText?.remove();
+        }
+        statusEl.textContent = `Disconnected from ${address.substring(0, 8)}`;
+      } catch (error) {
+        statusEl.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    } else {
+      statusEl.textContent = `Connecting to ${address.substring(0, 8)}...`;
+      try {
+        const response = await fetch('/api/bluetooth-manager/connect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address, timeout: 10.0 })
+        });
+        if (!response.ok) throw new Error('Connection failed');
+
+        const result: ConnectResponse = await response.json();
+
+        if (result.status === 'connected') {
+          connectedDevices.add(address);
+          const deviceEl = devicesContainer.querySelector(`[data-address="${address}"]`) as HTMLElement;
+          if (deviceEl) {
+            deviceEl.className = 'device-box p-4 cursor-pointer border-2 rounded-sm border-green-500 bg-green-950/30 transition-all';
+            const nameEl = deviceEl.querySelector('p');
+            if (nameEl) nameEl.className = 'text-sm lcd-text font-bold text-green-500';
+            const ledDot = '<span class="led-dot ml-2" title="Connected"></span><span class="text-green-500 text-xs ml-1">connected</span>';
+            nameEl?.insertAdjacentHTML('afterend', ledDot);
+          }
+          statusEl.textContent = `Connected to ${address.substring(0, 8)}...`;
+        } else {
+          statusEl.textContent = result.status;
+        }
+      } catch (error) {
+        statusEl.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    }
+  }
+
+  function renderDevices(devices: DeviceInfo[]) {
+    devicesContainer.innerHTML = '';
+
+    if (devices.length === 0) {
+      devicesContainer.innerHTML = '<p class="text-xs text-lcd-600 text-center py-4">No devices found</p>';
+      return;
+    }
+
+    devices.forEach(device => {
+      devicesContainer.appendChild(renderDevice(device));
+    });
+  }
+
+  async function loadConnectedDevices() {
+    try {
+      const response = await fetch('/api/bluetooth-manager/debug');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.connected_devices) {
+          data.connected_devices.forEach((device: string | { address: string }) => {
+            const address = typeof device === 'string' ? device : device.address;
+            connectedDevices.add(address.toLowerCase());
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load connected devices:', error);
+    }
+  }
+
+  loadConnectedDevices();
+  scanBtn.addEventListener('click', scanDevices);
+
+  // Auto-scan on page load
+  scanDevices();
+</script>
+
+<style>
+  .device-box {
+    background: linear-gradient(145deg, rgba(0, 0, 0, 0.8) 0%, rgba(10, 10, 10, 0.9) 100%);
+  }
+  .device-box:hover {
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.4);
+  }
+  .border-green-500 {
+    border-color: #44e674;
+  }
+  .bg-green-950\/30 {
+    background-color: rgba(20, 83, 45, 0.3);
+  }
+  .text-green-500 {
+    color: #44e674;
+  }
+</style>

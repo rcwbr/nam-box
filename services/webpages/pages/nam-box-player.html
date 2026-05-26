@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JackTrip Player - nam-box.local</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0f0f1a;
+            color: #eee;
+        }
+        .container {
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        h1 {
+            margin-top: 0;
+            color: #00d9ff;
+            font-size: 24px;
+        }
+        .status {
+            padding: 14px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 15px;
+        }
+        .status.connected { background: #1b4332; color: #52ff7d; border: 1px solid #2d7a46; }
+        .status.disconnected { background: #7f1d1d; color: #fca5a5; border: 1px solid #a73d3d; }
+        .status.connecting { background: #78350f; color: #fdba74; border: 1px solid #ae5a2b; }
+        .status.error { background: #7c2d12; color: #ffaaa3; border: 1px solid #b7482b; }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 15px;
+            cursor: pointer;
+            margin-right: 10px;
+            background: #00d9ff;
+            border: none;
+            border-radius: 6px;
+            color: #1a1a2e;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        button:hover:not(:disabled) { background: #00b8d9; }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            color: #888;
+        }
+        .volume-control {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #2a2a4a;
+        }
+        .volume-control label {
+            display: inline-block;
+            width: 80px;
+            font-size: 14px;
+        }
+        input[type="range"] {
+            width: 200px;
+            vertical-align: middle;
+        }
+        .info {
+            margin-top: 20px;
+            padding: 12px;
+            background: rgba(0, 217, 255, 0.05);
+            border-radius: 6px;
+            font-size: 13px;
+            color: #888;
+            border-left: 3px solid #00d9ff;
+        }
+        .info code {
+            background: #0f0f23;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #00d9ff;
+        }
+        .debug-section {
+            margin-top: 15px;
+            padding: 10px;
+            background: #0a0a1a;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #aaa;
+        }
+        .debug-section h4 {
+            margin: 0 0 8px 0;
+            color: #00d9ff;
+            font-size: 12px;
+        }
+        .debug-section pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        #debugLog {
+            margin-top: 15px;
+            padding: 10px;
+            background: #0a0a1a;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #aaa;
+            max-height: 150px;
+            overflow-y: auto;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JackTrip Audio Player</h1>
+        <div style="font-size: 12px; color: #666; margin-bottom: 15px;">
+            Server: <code>https://nam-box.local:4464</code>
+        </div>
+
+        <div id="status" class="status disconnected">Ready to connect</div>
+
+        <div class="controls">
+            <button id="connectBtn">Connect to Audio Stream</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+        </div>
+
+        <div class="volume-control">
+            <label for="volume">Volume:</label>
+            <input type="range" id="volume" min="0" max="100" value="80">
+            <span id="volumeValue">80%</span>
+        </div>
+
+        <div class="info" style="border-left-color:#4ade80;">
+            <strong>✅ Certificate Configured</strong>
+            <ol style="margin: 8px 0 0 0; padding-left: 20px; font-size:13px;">
+                <li>Server certificate hash is pre-configured for direct browser trust</li>
+                <li>No OS-level certificate installation required</li>
+                <li>Click "Test HTTPS Connection" above to verify connectivity</li>
+                <li>Then connect to audio stream</li>
+            </ol>
+        </div>
+        <div id="debugLog"></div>
+
+        <div class="debug-section">
+            <h4>QUIC Certificate Debug Info</h4>
+            <pre id="debugInfo"></pre>
+            <button id="testCertBtn" style="margin-top:8px;padding:4px 8px;font-size:11px;">Test HTTPS Connection</button>
+        </div>
+
+        <script>
+        function updateDebugInfo() {
+            const info = document.getElementById('debugInfo');
+            const lines = [
+                'Host: ' + window.location.hostname,
+                'Browser: ' + navigator.userAgent.split(')')[0].split('(')[1],
+                'WebTransport: ' + ('WebTransport' in window ? 'supported' : 'NOT SUPPORTED'),
+                'URL to test: https://nam-box.local:4464/webtransport',
+                '',
+                'Certificate trust:',
+                '- Using serverCertificateHashes for self-signed cert',
+                '- No OS-level CA certificate installation needed',
+                '',
+                'If connection fails:',
+                '- Verify server is running on nam-box.local:4464',
+                '- Check network connectivity'
+            ];
+            info.textContent = lines.join('\n');
+        }
+        updateDebugInfo();
+
+        // Test HTTPS connection to verify certificate trust
+        document.getElementById('testCertBtn').addEventListener('click', async () => {
+            log('Testing HTTPS connection...');
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000);
+                const response = await fetch('https://nam-box.local:4464/', {
+                    method: 'GET',
+                    mode: 'no-cors',
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+                log('HTTPS test completed - certificate may be trusted');
+            } catch (e) {
+                log('HTTPS test failed: ' + e.message);
+                if (e.name === 'TypeError') {
+                    log('Certificate likely NOT trusted - restart browser after cert install');
+                }
+            }
+        });
+        </script>
+    </div>
+
+    <script>
+        // Configuration matching JackTrip defaults
+        const CONFIG = {
+            sampleRate: 48000,
+            channels: 2,
+            bufferFrameCount: 256,
+            bitResolution: 16
+        };
+
+        // Audio state
+        let audioContext;
+        let workletNode;
+        let gainNode;
+        let wt = null;
+        let datagramReader = null;
+
+        // UI elements
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const statusDiv = document.getElementById('status');
+        const volumeSlider = document.getElementById('volume');
+        const volumeValue = document.getElementById('volumeValue');
+        const debugLog = document.getElementById('debugLog');
+
+        function log(message) {
+            const ts = new Date().toISOString().split('T')[1].split('.')[0];
+            const entry = document.createElement('div');
+            entry.textContent = `[${ts}] ${message}`;
+            debugLog.appendChild(entry);
+            debugLog.style.display = 'block';
+            debugLog.scrollTop = debugLog.scrollHeight;
+            console.log('[DEBUG]', message);
+        }
+
+        // AudioWorklet processor for sample buffer management
+        const audioWorkletCode = `
+            class AudioProcessor extends AudioWorkletProcessor {
+                constructor() {
+                    super();
+                    this.buffer = [];
+                    this.port.onmessage = (event) => {
+                        if (event.data.samples) {
+                            this.buffer.push(...event.data.samples);
+                        }
+                    };
+                }
+
+                process(outputs) {
+                    if (!outputs?.[0]?.length) return true;
+
+                    const output = outputs[0];
+                    const samplesPerChannel = output[0].length;
+
+                    if (this.buffer.length >= samplesPerChannel) {
+                        for (let ch = 0; ch < output.length; ch++) {
+                            for (let i = 0; i < samplesPerChannel; i++) {
+                                output[ch][i] = this.buffer.shift();
+                            }
+                        }
+                    } else {
+                        output.forEach(ch => ch.fill(0));
+                    }
+                    return true;
+                }
+            }
+            registerProcessor('audio-processor', AudioProcessor);
+        `;
+
+        function setStatus(message, type = 'disconnected') {
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+
+        function setVolume(value) {
+            if (gainNode) gainNode.gain.value = value / 100;
+        }
+
+        async function initAudio() {
+            try {
+                audioContext = new AudioContext({ sampleRate: CONFIG.sampleRate });
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = volumeSlider.value / 100;
+                gainNode.connect(audioContext.destination);
+
+                const blob = new Blob([audioWorkletCode], { type: 'application/javascript' });
+                const url = URL.createObjectURL(blob);
+                await audioContext.audioWorklet.addModule(url);
+
+                workletNode = new AudioWorkletNode(audioContext, 'audio-processor');
+                workletNode.connect(gainNode);
+                URL.revokeObjectURL(url);
+                return true;
+            } catch (e) {
+                console.error('Audio init failed:', e);
+                setStatus('Audio init failed: ' + e.message, 'error');
+                return false;
+            }
+        }
+
+        function feedSamples(samples) {
+            if (workletNode) workletNode.port.postMessage({ samples });
+        }
+
+        async function connect() {
+            try {
+                if (!await initAudio()) return;
+
+                setStatus('Connecting...', 'connecting');
+                connectBtn.disabled = true;
+                debugLog.style.display = 'block';
+
+                const url = 'https://nam-box.local:4464/webtransport';
+                log('Server URL: ' + url);
+                log('WebTransport supported: ' + ('WebTransport' in window));
+                log('User agent: ' + navigator.userAgent);
+
+                // Check WebTransport support
+                if (typeof WebTransport === 'undefined') {
+                    throw new Error('WebTransport not supported. Use Chrome 97+ or Edge 97+.');
+                }
+
+                // Connect via WebTransport
+                log('Creating WebTransport connection...');
+
+                // Certificate hash for self-signed certificate trust
+                // Generated from: openssl x509 -in server.crt -outform DER | openssl dgst -sha256 -binary | xxd -p
+                const certHash = new Uint8Array([
+                    0xfc, 0x63, 0xfd, 0xc8, 0xc6, 0x5c, 0x0c, 0xa5,
+                    0x78, 0xd8, 0x5b, 0x76, 0xa7, 0xa0, 0xfe, 0x1d,
+                    0x23, 0xd6, 0x18, 0x64, 0xb8, 0x52, 0x27, 0xf3,
+                    0xcc, 0x30, 0xa1, 0x89, 0xc0, 0x95, 0x24, 0x4a
+                ]);
+
+                wt = new WebTransport(url, {
+                    serverCertificateHashes: [certHash]
+                });
+                log('WebTransport object created, initial state: ' + wt.state);
+
+                wt.onstatechange = () => {
+                    log('WT state changed: ' + wt.state);
+                    if (wt.state === 'closed' || wt.state === 'error') {
+                        setStatus('Connection closed', 'disconnected');
+                        cleanup();
+                    }
+                };
+
+                wt.onerror = (e) => {
+                    log('WT onerror: ' + JSON.stringify(e));
+                    console.error('WT error:', e);
+                };
+
+                // Log incoming datagrams for debugging
+                if (wt.incomingDatagramReadable) {
+                    log('Incoming datagrams available');
+                } else {
+                    log('WARNING: No incomingDatagramReadable');
+                }
+
+                await Promise.race([
+                    wt.ready,
+                    new Promise((_, r) => setTimeout(() => r(new Error('Timeout after 15s')), 15000))
+                ]);
+
+                log('WT ready! State: ' + wt.state);
+                log('datagramsWritable: ' + wt.datagramsWritable);
+                log('datagramsReadable: ' + wt.datagramsReadable);
+
+                if (!wt.datagramsWritable) {
+                    throw new Error('Server lacks datagram support');
+                }
+
+                setStatus('Connected - Receiving audio', 'connected');
+                disconnectBtn.disabled = false;
+
+                // Read datagrams
+                datagramReader = wt.incomingDatagramReadable.getReader();
+                readDatagrams();
+
+            } catch (e) {
+                log('Connection failed: ' + e.message);
+                log('Error name: ' + e.name);
+                log('Error stack: ' + e.stack);
+
+                let msg = e.message;
+                // Check for certificate errors
+                if (msg.includes('CERTIFICATE_VERIFY_FAILED') ||
+                    msg.includes('CERTIFICATE_UNKNOWN') ||
+                    msg.includes('certificate unknown')) {
+                    msg = 'TLS CERTIFICATE ERROR: Server certificate hash mismatch or expired. ' +
+                          'Verify the server is using the expected certificate.';
+                } else if (e.name === 'WebTransportError' && wt?.state === 'failed') {
+                    msg = 'WebTransport connection failed. Check if server supports WebTransport datagrams. ' +
+                          'Ensure server is running and WebTransport is properly configured.';
+                } else if (msg.includes('opening handshake failed')) {
+                    msg = 'TLS handshake failed. Check server is running and network connectivity.';
+                }
+                setStatus('Connection failed: ' + msg, 'error');
+                cleanup();
+            }
+        }
+
+        async function readDatagrams() {
+            try {
+                while (true) {
+                    const { value, done } = await datagramReader.read();
+                    if (done) break;
+                    if (value?.byteLength > 0) {
+                        const int16 = new Int16Array(value);
+                        feedSamples(Array.from(int16, s => s / 32768));
+                    }
+                }
+            } catch (e) {
+                if (!(e.name === 'TypeError' && e.message.includes('no token'))) {
+                    console.error('Datagram error:', e);
+                }
+            }
+        }
+
+        function cleanup() {
+            datagramReader = null;
+            disconnectBtn.disabled = true;
+            connectBtn.disabled = false;
+        }
+
+        function disconnect() {
+            if (datagramReader) datagramReader.cancel();
+            if (wt) wt.close();
+            if (audioContext) audioContext.close();
+            cleanup();
+            setStatus('Disconnected', 'disconnected');
+        }
+
+        // Event listeners
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+        volumeSlider.addEventListener('input', () => {
+            volumeValue.textContent = volumeSlider.value + '%';
+            setVolume(volumeSlider.value);
+        });
+
+        window.addEventListener('beforeunload', disconnect);
+    </script>
+</body>
+</html>

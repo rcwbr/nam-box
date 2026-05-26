@@ -1,0 +1,32 @@
+x-common: &common
+  platform: ${PLATFORM}
+
+include:
+  - path: certs.yaml
+
+services:
+  web:
+    image: ghcr.io/rcwbr/nam-box/web:local
+    volumes:
+      - /opt/nam-box/ssl/nam-box.local:/etc/nam-box/ssl
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      certs:
+        condition: service_completed_successfully
+      bluetooth-manager:
+        condition: service_started
+
+  # webpages:
+  #   <<: *common
+  #   image: ghcr.io/rcwbr/nam-box/webpages:local
+  #   ports:
+  #     - "443:443"
+  #   depends_on:
+  #     certs:
+  #       condition: service_completed_successfully
+  #   volumes:
+  #     - /opt/nam-box/ssl/nam-box.local:/etc/nam-box/ssl
+  #   networks:
+  #     - internal

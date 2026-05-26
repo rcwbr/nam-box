@@ -1,0 +1,29 @@
+x-common: &common
+  platform: ${PLATFORM}
+
+services:
+  bluetooth-host:
+    <<: *common
+    image: ghcr.io/rcwbr/nam-box/bluetooth-host:local
+    network_mode: "host"
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - bluetooth-dbus:/var/run/dbus
+
+  bluetooth-manager:
+    <<: *common
+    image: ghcr.io/rcwbr/nam-box/bluetooth-manager:local
+    expose:
+      - "8000"
+    volumes:
+      - bluetooth-dbus:/var/run/dbus
+    environment:
+      - DBUS_SYSTEM_BUS_ADDRESS=unix:path=/var/run/dbus/system_bus_socket
+    depends_on:
+      bluetooth-host:
+        condition: service_started
+      certs:
+        condition: service_completed_successfully
+volumes:
+  bluetooth-dbus:

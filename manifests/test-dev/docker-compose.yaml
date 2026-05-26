@@ -1,0 +1,24 @@
+include:
+  - path: ../partials/certs.yaml
+    project_directory: ..
+    env_file: ../dev.env
+  - path: ../partials/mock-hardware.yaml
+    project_directory: ..
+    env_file: ../dev.env
+  - path: ../partials/web.yaml
+    project_directory: ..
+    env_file: ../dev.env
+
+# services:
+#   tunnel:
+#     image: cloudflare/cloudflared:2026.3.0
+#     command: tunnel --protocol quic --config /etc/cloudflared/config.yml run
+#     volumes:
+#       - ../../test/.cloudflared:/etc/cloudflared:ro
+#       - nambox-ssl:/etc/nam-box/ssl
+#     restart: unless-stopped
+#     shm_size: 384M
+#     network_mode: host
+#     depends_on:
+#       - webpages
+#       - jacktrip-hub

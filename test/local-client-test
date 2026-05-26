@@ -26,5 +26,5 @@ mender-docker-lifecycle-helper \
   --service-file jack ./jack.tar \
   --service-file mod-host ./mod-host.tar \
   --log-level DEBUG \
-  "${MDLH_ARGS}" \
+  ${MDLH_ARGS} \
   manifests/nam-box/docker-compose.yaml

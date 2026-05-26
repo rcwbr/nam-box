@@ -1,0 +1,143 @@
+module(
+    name = "nam_lv2_bazel",
+    version = "0.1.9",
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.17")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+
+# JACK Audio Connection Kit
+git_repository(
+    name = "jack",
+    commit = "17959465a722225a36a8b612aed26764036f258e",
+    remote = "https://github.com/jackaudio/jack2",
+    recursive_init_submodules = True,
+    build_file = "@//thirdparty:jack.BUILD",
+)
+
+# LV2 headers
+http_archive(
+    name = "lv2_headers",
+    sha256 = "78c51bcf21b54e58bb6329accbb4dae03b2ed79b520f9a01e734bd9de530953f",
+    strip_prefix = "lv2-1.18.10",
+    urls = ["https://lv2plug.in/spec/lv2-1.18.10.tar.xz"],
+    build_file = "@//thirdparty:lv2.BUILD",
+)
+
+# NAM LV2 source
+git_repository(
+    name = "nam_lv2",
+    commit = "ce7cbeb8f3824c4a7d2f67976edd753b81ac9d90",
+    remote = "https://github.com/mikeoliphant/neural-amp-modeler-lv2",
+    build_file = "@//thirdparty:nam_lv2.BUILD",
+)
+
+# NeuralAudio library (submodule of NAM LV2)
+git_repository(
+    name = "neural_audio",
+    commit = "4c9d20ee1cf6c47785817a8d42ebe2bbf87fbf29",
+    remote = "https://github.com/mikeoliphant/NeuralAudio",
+    build_file = "@//thirdparty:neural_audio.BUILD",
+)
+
+# NeuralAmpModelerCore (submodule of NeuralAudio)
+git_repository(
+    name = "neural_amp_modeler_core",
+    commit = "e181f61efb8d05d34add45b5eecb3893ff21177c",
+    remote = "https://github.com/sdatkinson/NeuralAmpModelerCore",
+    build_file = "@//thirdparty:nam_core.BUILD",
+)
+
+# RTNeural (submodule of NeuralAudio)
+git_repository(
+    name = "rtneural",
+    commit = "5909c44909cd6100367f62cd04b348de85d57dbf",
+    remote = "https://github.com/mikeoliphant/RTNeural",
+    build_file = "@//thirdparty:rtneural.BUILD",
+)
+
+# math_approx (submodule of NeuralAudio)
+git_repository(
+    name = "math_approx",
+    commit = "f6d55e70f0c5e888d3a0c4e252b02b530210c78a",
+    remote = "https://github.com/Chowdhury-DSP/math_approx",
+    build_file = "@//thirdparty:math_approx.BUILD",
+)
+
+# xsimd (submodule of RTNeural)
+git_repository(
+    name = "xsimd",
+    commit = "a00c81f7b9e808a42aedcf7da2fbb1f9a636da34",
+    remote = "https://github.com/xtensor-stack/xsimd",
+    build_file = "@//thirdparty:xsimd.BUILD",
+)
+
+# eigen (required by NeuralAmpModelerCore) - from Bazel Central Registry
+bazel_dep(name = "eigen", version = "5.0.1")
+
+# nlohmann/json header-only library
+http_archive(
+    name = "nlohmann_json",
+    sha256 = "4b92eb0c06d10683f7447ce9406cb97cd4b453be18d7279320f7b2f025c10187",
+    strip_prefix = "json-3.12.0",
+    urls = ["https://github.com/nlohmann/json/archive/refs/tags/v3.12.0.tar.gz"],
+    build_file = "@//thirdparty:nlohmann_json.BUILD",
+)
+
+# jalv - LV2 host for running plugins
+git_repository(
+    name = "jalv",
+    commit = "ac8fe617f7d484b49be6b929e8ed74ca7141a053",
+    remote = "https://github.com/drobilla/jalv",
+    build_file = "@//thirdparty:jalv.BUILD",
+)
+
+# zix - Utility library (required by lilv, sratom, suil)
+git_repository(
+    name = "zix",
+    commit = "a4fab097251f8b8218d3838b40cce5ef39e56aaf",
+    remote = "https://github.com/drobilla/zix",
+    build_file = "@//thirdparty:zix.BUILD",
+)
+
+# serd - RDF library for LV2
+git_repository(
+    name = "serd",
+    commit = "0317806d56f9288294183b41074a6fd50a924f5a",
+    remote = "https://github.com/drobilla/serd",
+    build_file = "@//thirdparty:serd.BUILD",
+)
+
+# sord - RDF store for LV2
+git_repository(
+    name = "sord",
+    commit = "c9b049b3ac758cafe354cdf019422febd99abe45",
+    remote = "https://github.com/drobilla/sord",
+    build_file = "@//thirdparty:sord.BUILD",
+)
+
+# sratom - LV2 Atom serialization
+git_repository(
+    name = "sratom",
+    commit = "9e8ee84eed502e6030ce8bb49694fd28542b08fc",
+    remote = "https://github.com/drobilla/sratom",
+    build_file = "@//thirdparty:sratom.BUILD",
+)
+
+# lilv - LV2 host library
+git_repository(
+    name = "lilv",
+    commit = "5318c9e495c5404d7f0a623aeba2a8f617a26a9d",
+    remote = "https://github.com/drobilla/lilv",
+    build_file = "@//thirdparty:lilv.BUILD",
+)
+
+# suil - LV2 UI library
+git_repository(
+    name = "suil",
+    commit = "3100c21f864aacbeece57a3bd93af340074f34cb",
+    remote = "https://github.com/drobilla/suil",
+    build_file = "@//thirdparty:suil.BUILD",
+)

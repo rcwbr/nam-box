@@ -14,4 +14,3 @@ RUN --mount=type=bind,from=github-mod-host,target=.,rw \
 
 ENTRYPOINT [ "mod-host" ]
 CMD [ "" ]
-LABEL io.containerd.image.name=ghcr.io/rcwbr/nam-box-mod-host:local

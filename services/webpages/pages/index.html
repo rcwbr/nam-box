@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JackTrip WebTransport Player</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemUI, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #1a1a2e;
+            color: #eee;
+        }
+        .container {
+            background: #16213e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        h1 {
+            margin-top: 0;
+            color: #00d9ff;
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+            background: #00d9ff;
+            border: none;
+            border-radius: 6px;
+            color: #1a1a2e;
+            font-weight: bold;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        input {
+            padding: 10px;
+            font-size: 14px;
+            width: 300px;
+            border: 1px solid #333;
+            border-radius: 6px;
+            background: #0f0f23;
+            color: #fff;
+        }
+        #status {
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        #status.connected { background: #1b4332; color: #52ff7d; }
+        #status.disconnected { background: #7f1d1d; color: #fca5a5; }
+        #status.connecting { background: #78350f; color: #fdba74; }
+        .volume-control {
+            margin-top: 20px;
+        }
+        .volume-control label {
+            display: inline-block;
+            width: 80px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>JackTrip WebTransport Player</h1>
+        <div style="font-size: 12px; color: #888; margin-bottom: 10px;">
+            Requires: Server with WebTransport support (--hubpatch), UDP 4464 open, TLS certs trusted
+        </div>
+
+        <div class="controls">
+            <input type="text" id="serverUrl" placeholder="https://server.example.com:4464" value="https://localhost:4464">
+            <!-- Note: Use localhost for same machine, nam-box.local for mDNS on network -->
+            <button id="connectBtn">Connect</button>
+            <button id="disconnectBtn" disabled>Disconnect</button>
+        </div>
+
+        <div id="status" class="disconnected">Disconnected</div>
+
+        <div class="volume-control">
+            <label for="volume">Volume:</label>
+            <input type="range" id="volume" min="0" max="100" value="80">
+            <span id="volumeValue">80%</span>
+        </div>
+
+        <div style="margin-top: 20px; font-size: 12px; color: #888;">
+            <button id="testBtn" style="padding: 6px 12px; font-size: 12px;">Test Connection</button>
+            <span id="testResult" style="margin-left: 10px;"></span>
+        </div>
+    </div>
+
+    <script>
+        // Audio configuration matching JackTrip defaults
+        const CONFIG = {
+            sampleRate: 48000,
+            channels: 2,
+            bufferFrameCount: 256,
+            bitResolution: 32
+        };
+
+        // Detect if we're running locally vs remote (codespace/cloud)
+        function detectEnvironment() {
+            const hostname = window.location.hostname;
+            console.log('Page hostname:', hostname);
+            console.log('Is localhost:', hostname === 'localhost' || hostname === '127.0.0.1');
+
+            // If page is served from localhost, suggest localhost for WebTransport
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                console.log('Running locally - can use localhost for WebTransport');
+                return 'local';
+            }
+            // Check if we're on a .local mDNS hostname
+            if (hostname.endsWith('.local')) {
+                console.log('On mDNS hostname - may need network access to nam-box.local');
+                return 'mdns';
+            }
+            return 'remote';
+        }
+
+        let audioContext;
+        let workletNode;
+        let gainNode;
+        let wt = null;
+        let stream = null;
+        let reader = null;
+        let datagramReader = null;
+
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const serverUrlInput = document.getElementById('serverUrl');
+        const statusDiv = document.getElementById('status');
+        const volumeSlider = document.getElementById('volume');
+        const volumeValue = document.getElementById('volumeValue');
+
+        // Display troubleshooting info
+        detectEnvironment();
+
+        console.log('=== WebTransport Troubleshooting ===');
+        console.log('1. Ensure docker-compose.yml uses "build:" for jacktrip-hub (not just "image:")');
+        console.log('2. The jacktrip image must be built with -Dmsquic=enabled for WebTransport');
+        console.log('3. Trust the CA certificate: /opt/nam-box/ssl/nam-box.local/ca.crt');
+        console.log('4. UDP port 4464 must be mapped: - "4464:4464/udp"');
+
+        // AudioWorklet processor code
+        const audioWorkletCode = `
+            class AudioProcessor extends AudioWorkletProcessor {
+                constructor() {
+                    super();
+                    this.outputBuffer = [];
+                    this.port.onmessage = (event) => {
+                        if (event.data.samples) {
+                            this.outputBuffer.push(...event.data.samples);
+                        }
+                    };
+                }
+
+                process(outputs, inputs, parameters) {
+                    if (!outputs || !outputs[0] || !outputs[0].length) {
+                        return true;
+                    }
+
+                    const output = outputs[0];
+                    const channelCount = output.length;
+
+                    if (channelCount === 0) {
+                        return true;
+                    }
+
+                    const samplesPerChannel = output[0].length;
+
+                    if (this.outputBuffer.length >= samplesPerChannel) {
+                        for (let channel = 0; channel < channelCount; channel++) {
+                            const channelData = output[channel];
+                            for (let i = 0; i < samplesPerChannel; i++) {
+                                channelData[i] = this.outputBuffer.shift();
+                            }
+                        }
+                    } else {
+                        for (let channel = 0; channel < channelCount; channel++) {
+                            output[channel].fill(0);
+                        }
+                    }
+
+                    return true;
+                }
+            }
+
+            registerProcessor('audio-processor', AudioProcessor);
+        `;
+
+        async function initAudio() {
+            try {
+                console.log('Initializing audio context with sampleRate:', CONFIG.sampleRate);
+                audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                    sampleRate: CONFIG.sampleRate
+                });
+                console.log('AudioContext created, state:', audioContext.state);
+
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = volumeSlider.value / 100;
+                gainNode.connect(audioContext.destination);
+                console.log('GainNode created and connected');
+
+                // Register AudioWorklet module
+                const blob = new Blob([audioWorkletCode], { type: 'application/javascript' });
+                const url = URL.createObjectURL(blob);
+                console.log('Loading AudioWorklet module...');
+                await audioContext.audioWorklet.addModule(url);
+                console.log('AudioWorklet module loaded');
+
+                workletNode = new AudioWorkletNode(audioContext, 'audio-processor');
+                workletNode.connect(gainNode);
+                console.log('WorkletNode created and connected');
+
+                URL.revokeObjectURL(url);
+                return true;
+            } catch (error) {
+                console.error('Failed to initialize audio:', error);
+                console.error('Audio init error name:', error.name);
+                console.error('Audio init error message:', error.message);
+                return false;
+            }
+        }
+
+        function feedAudio(samples) {
+            if (workletNode) {
+                workletNode.port.postMessage({ samples });
+            }
+        }
+
+        function setStatus(message, type) {
+            statusDiv.textContent = message;
+            statusDiv.className = type;
+        }
+
+        function decodeFloat32Samples(arrayBuffer) {
+            const float32 = new Float32Array(arrayBuffer);
+            return Array.from(float32);
+        }
+
+        async function connect() {
+            try {
+                console.log('=== Starting connect() ===');
+                if (!initAudio()) {
+                    throw new Error('Failed to initialize audio');
+                }
+
+                setStatus('Connecting...', 'connecting');
+                connectBtn.disabled = true;
+                disconnectBtn.disabled = false;
+
+                let url = serverUrlInput.value;
+                console.log('Server URL from input:', url);
+
+                // Ensure URL has correct path for WebTransport CONNECT request
+                try {
+                    const parsedUrl = new URL(url);
+                    if (!parsedUrl.pathname.includes('webtransport') && !parsedUrl.pathname.includes('jacktrip')) {
+                        parsedUrl.pathname = parsedUrl.pathname.replace(/\/$/, '') + '/webtransport';
+                    }
+                    url = parsedUrl.toString();
+                    console.log('Adjusted URL for WebTransport CONNECT:', url);
+                } catch (e) {
+                    console.error('URL adjustment error:', e);
+                }
+
+                // Validate URL format
+                try {
+                    new URL(url);
+                    console.log('URL is valid');
+                } catch (urlError) {
+                    console.error('Invalid URL:', urlError);
+                    throw new Error('Invalid URL format: ' + urlError.message);
+                }
+
+                // Try a fetch to check basic connectivity (will fail on non-HTTP endpoints but shows if server is reachable)
+                console.log('Checking basic connectivity...');
+                try {
+                    const connectivityCheck = await fetch(url, {
+                        method: 'HEAD',
+                        mode: 'no-cors',
+                        cache: 'no-cache'
+                    }).catch(fetchErr => {
+                        console.log('Fetch check completed (no-cors mode may not show response):', fetchErr);
+                    });
+                } catch (fetchErr) {
+                    console.log('Connectivity check note:', fetchErr.message);
+                }
+
+                // WebTransport connection
+                console.log('Connecting to WebTransport URL:', url);
+                console.log('URL protocol:', new URL(url).protocol);
+                console.log('URL hostname:', new URL(url).hostname);
+                console.log('URL port:', new URL(url).port);
+
+                try {
+                    console.log('Creating WebTransport connection...');
+                    wt = new WebTransport(url);
+
+                    console.log('WebTransport object created, initial state:', wt.state);
+                    console.log('WebTransport inboundStreamCount:', wt.inboundStreamCount);
+                    console.log('WebTransport outboundStreamCount:', wt.outboundStreamCount);
+                } catch (wtError) {
+                    console.error('Failed to create WebTransport object:', wtError);
+                    console.error('wtError.name:', wtError.name);
+                    console.error('wtError.message:', wtError.message);
+                    throw wtError;
+                }
+
+                wt.onstatechange = () => {
+                    console.log('WebTransport state changed:', wt.state);
+                    console.log('WebTransport readyState:', wt.readyState);
+                    if (wt.state === 'closed' || wt.state === 'error') {
+                        console.log('WebTransport is closed or in error state');
+                        setStatus('Connection closed', 'disconnected');
+                        resetConnection();
+                    }
+                };
+
+                wt.onerror = (error) => {
+                    console.error('WebTransport onerror event:', error);
+                    console.error('Error type:', error.constructor?.name);
+                    console.error('Error message:', error.message);
+                    console.error('Error code:', error.code);
+                    if (wt && wt.state) {
+                        console.log('State at error:', wt.state);
+                    }
+                };
+
+                // Check if WebTransport is supported
+                if (typeof WebTransport === 'undefined') {
+                    throw new Error('WebTransport API not available in this browser');
+                }
+                console.log('WebTransport API is available');
+
+                // Additional verification: try to fetch the certificate to force browser cache refresh
+                try {
+                    await fetch(url, { method: 'HEAD', cache: 'reload' });
+                } catch (e) {
+                    console.log('Certificate pre-check (expected to fail for QUIC):', e.message);
+                }
+
+                // Check if we need to handle certificate issues
+                console.log('Checking server accessibility...');
+                const serverUrl = new URL(url);
+                console.log('Server hostname:', serverUrl.hostname);
+
+                // Try WebSocket upgrade check (WebTransport often runs alongside WS)
+                try {
+                    const wsTest = `wss://${serverUrl.hostname}:${serverUrl.port || 4464}/`;
+                    console.log('For reference, test WebSocket URL would be:', wsTest);
+                } catch (e) {
+                    console.log('WebSocket URL check note:', e);
+                }
+
+                try {
+                    console.log('Waiting for WebTransport ready...');
+                    const readyTimeout = setTimeout(() => {
+                        console.log('Ready timeout reached - state is:', wt.state);
+                        console.log('Ready promise still pending');
+                    }, 5000);
+
+                    await Promise.race([
+                        wt.ready,
+                        new Promise((_, reject) =>
+                            setTimeout(() => reject(new Error('Connection timeout after 10s')), 10000)
+                        )
+                    ]);
+                    clearTimeout(readyTimeout);
+                    console.log('WebTransport ready! State:', wt.state);
+
+                    // Log session details for debugging
+                    console.log('WebTransport session details:');
+                    console.log('  - datagramsWritable:', wt.datagramsWritable);
+                    console.log('  - datagramsReadable:', wt.datagramsReadable);
+                    console.log('  - incomingDatagramReadable:', !!wt.incomingDatagramReadable);
+                    console.log('  - outgoingDatagramWritable:', !!wt.outgoingDatagramWritable);
+
+                    // Wait for SETTINGS exchange to complete before datagrams work
+                    await new Promise(resolve => setTimeout(resolve, 500));
+
+                    // Verify datagram support (required for audio transport)
+                    if (!wt.datagramsWritable) {
+                        throw new Error('Server does not support WebTransport datagrams. Ensure jacktrip-hub is built with -Dmsquic=enabled.');
+                    }
+
+                    setStatus('WebTransport connected - handshaking...', 'connecting');
+
+                    // Use incoming datagrams for audio (unreliable transport)
+                    // The server sends audio via QUIC datagrams, not streams
+                    if (wt.incomingDatagramReadable) {
+                        datagramReader = wt.incomingDatagramReadable.getReader();
+                        console.log('Starting datagram read loop...');
+                        setStatus('Connected - Receiving datagrams', 'connected');
+                        readDatagramLoop();
+                    } else {
+                        throw new Error('No incoming datagram stream available - server may not support WebTransport datagrams');
+                    }
+                } catch (e) {
+                    console.error('WebTransport ready failed:', e);
+                    console.error('Error name:', e.name);
+                    console.error('Error message:', e.message);
+                    if (e.code) console.error('Error code:', e.code);
+                    throw e;
+                }
+
+                // Datagram-based approach replaces stream-based (server sends audio via QUIC datagrams)
+
+            } catch (error) {
+                console.error('Connection failed:', error);
+                console.error('Error type:', error.constructor?.name);
+                console.error('Error name:', error.name);
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
+                if (error.code) console.error('Error code:', error.code);
+                let errorMsg = error.message || 'Unknown error';
+                if (errorMsg.includes('ERR_METHOD_NOT_SUPPORTED')) {
+                    errorMsg = 'WebTransport not supported. Check that server is running and supports WebTransport.';
+                } else if (errorMsg.includes('ERR_CONNECTION_REFUSED')) {
+                    errorMsg = 'Connection refused. Cannot reach ' + serverUrlInput.value + '. ';
+                    errorMsg += 'Check if docker-compose services are running: docker-compose up -d. ';
+                    errorMsg += 'If using local hostname, verify mDNS is configured.';
+                } else if (errorMsg.includes('Opening handshake failed')) {
+                    if (error.message?.includes('CERTIFICATE_UNKNOWN') || error.message?.includes('certificate') || error.message?.includes('SSL')) {
+                        errorMsg = 'Certificate verification failed. The CA certificate must be trusted by your browser. ';
+                        errorMsg += 'FIX: Run this on your system to trust the CA: ';
+                        errorMsg += (navigator.platform.includes('Mac') ?
+                            'sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /opt/nam-box/ssl/nam-box.local/ca.crt' :
+                            'sudo cp /opt/nam-box/ssl/nam-box.local/ca.crt /usr/local/share/ca-certificates/ && sudo update-ca-certificates');
+                        errorMsg += '. Then restart your browser.';
+                    } else {
+                        errorMsg = 'Handshake failed. Server may not support WebTransport. ';
+                        errorMsg += 'Verify docker-compose.yaml uses -S (not --jacktripserver).';
+                    }
+                }
+                setStatus('Connection failed: ' + errorMsg, 'disconnected');
+                resetConnection();
+            }
+        }
+
+        // KEEP: Stream-based readLoop (unused but kept for reference)
+        async function readLoop() {
+            console.log('readLoop started (deprecated - use datagrams)');
+            const startTime = Date.now();
+            let readCount = 0;
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    readCount++;
+                    if (readCount % 100 === 0) {
+                        console.log(`Read #${readCount} after ${Date.now() - startTime}ms, bytes: ${value?.byteLength || value?.length || 0}`);
+                    }
+                    if (done) {
+                        console.log('Stream closed, total reads:', readCount, 'duration:', Date.now() - startTime, 'ms');
+                        break;
+                    }
+
+                    if (value) {
+                        const samples = decodeFloat32Samples(value);
+                        feedAudio(samples);
+                    }
+                }
+            } catch (error) {
+                console.error('Read error:', error);
+                console.error('Read error name:', error.name);
+                console.error('Read error message:', error.message);
+                setStatus('Stream error', 'disconnected');
+                resetConnection();
+            }
+        }
+
+        // NEW: Datagram-based reading (matches server's sendDatagram usage)
+        async function readDatagramLoop() {
+            console.log('Datagram readLoop started');
+            const startTime = Date.now();
+            let datagramCount = 0;
+            try {
+                while (true) {
+                    const { value, done } = await datagramReader.read();
+                    datagramCount++;
+                    if (datagramCount % 100 === 0) {
+                        console.log(`Datagram #${datagramCount} after ${Date.now() - startTime}ms, bytes: ${value?.byteLength || value?.length || 0}`);
+                    }
+                    if (done) {
+                        console.log('Datagram stream closed, total datagrams:', datagramCount, 'duration:', Date.now() - startTime, 'ms');
+                        break;
+                    }
+
+                    if (value && value.byteLength > 0) {
+                        const samples = decodeFloat32Samples(value);
+                        feedAudio(samples);
+                    }
+                }
+            } catch (error) {
+                // TypeError with "no token" message is expected when reader is canceled
+                if (error.name === 'TypeError' && error.message.includes('no token')) {
+                    console.log('Datagram reader was canceled (expected on disconnect)');
+                } else {
+                    console.error('Datagram read error:', error);
+                    console.error('Datagram read error name:', error.name);
+                    console.error('Datagram read error message:', error.message);
+                    setStatus('Datagram error', 'disconnected');
+                }
+                resetConnection();
+            }
+        }
+
+        function disconnect() {
+            console.log('=== Disconnecting ===');
+            console.log('Current WebTransport state:', wt?.state);
+            if (datagramReader) {
+                console.log('Canceling datagram reader');
+                datagramReader.cancel();
+                datagramReader = null;
+            }
+            if (reader) {
+                console.log('Canceling reader');
+                reader.cancel();
+                reader = null;
+            }
+            if (stream) {
+                console.log('Closing stream');
+                try { stream.close(); } catch (e) { console.log('Stream close error:', e); }
+                stream = null;
+            }
+            if (wt) {
+                console.log('Closing WebTransport');
+                try { wt.close(); } catch (e) { console.log('WT close error:', e); }
+                wt = null;
+            }
+            if (workletNode) {
+                console.log('Disconnecting worklet');
+                workletNode.disconnect();
+                workletNode = null;
+            }
+            if (audioContext) {
+                console.log('Closing AudioContext');
+                audioContext.close();
+                audioContext = null;
+            }
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+            setStatus('Disconnected', 'disconnected');
+        }
+
+        function resetConnection() {
+            connectBtn.disabled = false;
+            disconnectBtn.disabled = true;
+        }
+
+        volumeSlider.addEventListener('input', () => {
+            volumeValue.textContent = volumeSlider.value + '%';
+            if (gainNode) {
+                gainNode.gain.value = volumeSlider.value / 100;
+            }
+        });
+
+        connectBtn.addEventListener('click', connect);
+        disconnectBtn.addEventListener('click', disconnect);
+
+        // Test connection button for diagnostics
+        document.getElementById('testBtn').addEventListener('click', async () => {
+            const testResult = document.getElementById('testResult');
+            let url = serverUrlInput.value;
+            testResult.textContent = 'Testing...';
+            testResult.style.color = '#fdba74';
+
+            try {
+                // Apply same path adjustment as main connect function
+                try {
+                    const parsedUrl = new URL(url);
+                    if (!parsedUrl.pathname.includes('webtransport') && !parsedUrl.pathname.includes('jacktrip')) {
+                        parsedUrl.pathname = parsedUrl.pathname.replace(/\/$/, '') + '/webtransport';
+                    }
+                    url = parsedUrl.toString();
+                } catch (e) {
+                    console.error('URL adjustment error:', e);
+                }
+
+                const parsedUrl = new URL(url);
+                const hostname = parsedUrl.hostname;
+                const port = parsedUrl.port || 4464;
+
+                // Test 1: DNS resolution
+                console.log('Testing DNS resolution for:', hostname);
+                testResult.textContent = 'Testing DNS...';
+
+                // Test 2: Try to create a minimal WebTransport to check connectivity
+                testResult.textContent = 'Testing WebTransport connectivity...';
+                console.log('Creating test WebTransport connection to:', url);
+
+                const testWt = new WebTransport(url);
+                const testTimeout = setTimeout(() => {
+                    console.warn('Test connection timeout');
+                    testResult.textContent = 'Timeout - check server URL and network';
+                    testResult.style.color = '#fca5a5';
+                    testWt.close();
+                }, 5000);
+
+                await testWt.ready;
+                clearTimeout(testTimeout);
+                testWt.close();
+
+                testResult.textContent = 'Success!';
+                testResult.style.color = '#52ff7d';
+
+            } catch (err) {
+                console.error('Test connection failed:', err);
+                testResult.textContent = 'Failed: ' + err.message;
+                testResult.style.color = '#fca5a5';
+            }
+        });
+
+        // Global error handler for uncaught errors
+        window.addEventListener('error', (event) => {
+            console.error('=== Global Error ===');
+            console.error('Message:', event.message);
+            console.error('Filename:', event.filename);
+            console.error('Line:', event.lineno);
+            console.error('Col:', event.colno);
+            console.error('Error:', event.error);
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            console.error('=== Unhandled Promise Rejection ===');
+            console.error('Reason:', event.reason);
+            console.error('Promise:', event.promise);
+        });
+
+        window.addEventListener('beforeunload', () => {
+            disconnect();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,130 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-black min-h-screen text-lcd-300 font-mono flex items-center justify-center" style="font-family: 'Orbitron', sans-serif;">
+    <main class="max-w-sm mx-auto relative pt-1">
+      <div class="lcd-box p-8 min-h-[min(calc(100vh-8px),750px)] w-full relative">
+        <div class="corner-circle circle-top-left"></div>
+        <div class="corner-circle circle-top-right"></div>
+        <div class="corner-circle circle-bottom-left"></div>
+        <div class="corner-circle circle-bottom-right"></div>
+        <slot />
+      </div>
+    </main>
+  </body>
+</html>
+
+<style is:global>
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+
+  body {
+    background: linear-gradient(135deg, #050505 0%, #000000 100%);
+  }
+
+  .lcd-box {
+    @apply bg-black border-4 border-lcd-400 rounded-sm;
+    box-shadow: 0 0 40px rgba(234, 179, 8, 0.3),
+                inset 0 0 20px rgba(234, 179, 8, 0.15);
+    position: relative;
+  }
+
+  .lcd-box::before {
+    content: '';
+    @apply absolute inset-0 pointer-events-none;
+    background: linear-gradient(180deg, rgba(234, 179, 8, 0.15) 0%, transparent 20%);
+  }
+
+  .corner-circle {
+    @apply absolute w-4 h-4 rounded-full pointer-events-none;
+  }
+
+  .circle-top-left {
+    @apply top-2 left-2;
+    background: transparent;
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+  }
+
+  .circle-top-right {
+    @apply top-2 right-2;
+    background: transparent;
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+  }
+
+  .circle-bottom-left {
+    @apply bottom-2 left-2;
+    background: transparent;
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+  }
+
+  .circle-bottom-right {
+    @apply bottom-2 right-2;
+    background: transparent;
+    box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+  }
+
+  .lcd-text {
+    @apply text-lcd-300 font-bold font-mono uppercase;
+    text-shadow: 0 0 10px rgba(234, 179, 8, 0.6);
+  }
+
+  .lcd-accent {
+    @apply text-lcd-400 font-extrabold uppercase text-center;
+    text-shadow: 0 0 15px rgba(234, 179, 8, 0.8);
+  }
+
+  .lcd-button {
+    @apply bg-lcd-950 border-4 border-lcd-300 text-lcd-200 font-bold font-mono uppercase tracking-widest rounded-sm;
+    box-shadow: 0 0 30px rgba(234, 179, 8, 0.45);
+    transition: all 0.2s ease;
+    text-shadow: 0 0 8px rgba(234, 179, 8, 0.7);
+  }
+
+  .lcd-button:hover {
+    @apply bg-lcd-900;
+    box-shadow: 0 0 35px rgba(234, 179, 8, 0.7);
+  }
+
+  .lcd-divider {
+    @apply border-t-4 border-lcd-500 rounded-full;
+    width: 80%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .lcd-link {
+    @apply text-lcd-300 underline decoration-lcd-400 font-bold uppercase;
+  }
+
+  .lcd-link:hover {
+    @apply text-lcd-200;
+  }
+
+  .led-dot {
+    @apply inline-block w-4 h-4 rounded-full;
+    background: linear-gradient(135deg, #44e674 0%, #32d76a 100%);
+    box-shadow: 0 0 15px rgba(68, 230, 116, 0.7);
+    animation: pulse-led 2s infinite;
+  }
+
+  @keyframes pulse-led {
+    0%, 100% { box-shadow: 0 0 15px rgba(68, 230, 116, 0.7); }
+    50% { box-shadow: 0 0 25px rgba(68, 230, 116, 0.9); }
+  }
+</style>

@@ -1,0 +1,21 @@
+#!/bin/bash
+
+set -e
+
+docker buildx bake --allow=fs=/var/buildx-cache bluetooth-host bluetooth-manager $@
+
+MDLH_ARGS="${MDLH_ARGS:-}$*"
+
+./mender-docker-lifecycle-helper \
+  --no-delta \
+  --platform linux/arm64 \
+  --manifest-name nam-box \
+  --wait-for-deploy \
+  --device-type raspberrypi5 \
+  --device-group nam-box-test \
+  --service-file bluetooth-host ./bluetooth-host.tar \
+  --service-file bluetooth-manager ./bluetooth-manager.tar \
+  --log-level DEBUG \
+  --cache-limit-percent 20.0 \
+  ${MDLH_ARGS} \
+  manifests/test-hardware/docker-compose.yaml

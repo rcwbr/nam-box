@@ -13,9 +13,9 @@ container_cloudflared() {
   "$@"
 }
 
-# container_cloudflared tunnel login
+container_cloudflared tunnel login
 
-# container_cloudflared tunnel create "$HOSTNAME"
+container_cloudflared tunnel create "$HOSTNAME"
 
 # Using nginx for envsubst just because it is part of the application anyway
 docker run \

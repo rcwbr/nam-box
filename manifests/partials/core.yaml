@@ -1,0 +1,42 @@
+x-common: &common
+  platform: ${PLATFORM}
+
+services:
+  jack:
+    <<: *common
+    image: ghcr.io/rcwbr/nam-box/jack:local
+    ipc: "shareable"
+    devices:
+      - "/dev/snd/by-id/usb-Roland_DUO-CAPTURE-00:/dev/snd/by-id/usb-Roland_DUO-CAPTURE-00"
+      # - "/run/udev:/run/udev:ro"
+    cap_add:
+      - SYS_NICE
+      - SYS_RAWIO
+      - IPC_LOCK
+    security_opt:
+      - seccomp=unconfined
+    privileged: true
+    shm_size: 700M
+    ulimits:
+      memlock: -1
+
+  nam:
+    <<: *common
+    image: ghcr.io/rcwbr/nam-box/nam:local
+    depends_on:
+      jack:
+        condition: service_started
+    ipc: "service:jack"
+    volumes:
+      - ./models:/usr/local/share/nam-models:ro
+    working_dir: /home/nam
+    command: ["jalv", "http://github.com/mikeoliphant/neural-amp-modeler-lv2"]
+    environment:
+      - LV2_PATH=/usr/local/lib/lv2
+    cap_add:
+      - SYS_NICE
+      - IPC_LOCK
+    security_opt:
+      - seccomp=unconfined
+    ulimits:
+      memlock: -1

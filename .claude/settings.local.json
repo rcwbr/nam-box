@@ -3,11 +3,7 @@
     "ANTHROPIC_API_KEY": "",
     "ANTHROPIC_BASE_URL": "https://openrouter.ai/api"
   },
-  "model": "poolside/laguna-m.1:free",
   "permissions": {
-    "additionalDirectories": [
-      "/workspaces/nam-box/services"
-    ],
     "allow": [
       "Bash(tar -tf /workspaces/nam-box/mod-ui.tar)",
       "Bash(tar -xO blobs/sha256/965454ed7847c3db750ea750dfbe01cf9233456e7fbe3572ffc8e34af7f225fb)",
@@ -43,7 +39,36 @@
       "Bash(tar -tzf nam-bluetooth.tar)",
       "Bash(tar -tf nam-bluetooth.tar)",
       "Bash(mkdir -p /workspaces/nam-box/services/webplayer && ls -la /workspaces/nam-box/services/jack/)",
-      "Bash(docker buildx *)"
+      "Bash(docker buildx *)",
+      "WebFetch(domain:jacktrip.github.io)",
+      "Bash(PYTEST_DEBUG_TEMPROOT=/tmp DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box/subdirs/mender-docker-lifecycle-helper python -m pytest tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(PYTEST_DEBUG_TEMPROOT=/tmp DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box/subdirs/mender-docker-lifecycle-helper python -m pytest /workspaces/nam-box/subdirs/mender-docker-lifecycle-helper/tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(export PYTEST_DEBUG_TEMPROOT=/tmp)",
+      "Bash(export DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box)",
+      "Bash(python -m pytest tests/unit/test_context.py::TestComposeContentFromFile -v --no-header)",
+      "Bash(python -m pytest subdirs/mender-docker-lifecycle-helper/tests/unit/test_artifact.py::TestPrepImage -v --tb=short)",
+      "Bash(PYTEST_DEBUG_TEMPROOT=/tmp python -m pytest subdirs/mender-docker-lifecycle-helper/tests/unit/test_artifact.py::TestPrepImage -v --tb=short)",
+      "Bash(PYTEST_DEBUG_TEMPROOT=/tmp DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box python -m pytest subdirs/mender-docker-lifecycle-helper/tests/unit/test_artifact.py::TestPrepImage -v --tb=short)",
+      "Bash(python -m pytest tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(PYTEST_DEBUG_TEMPROOT=/tmp pytest tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(PYTEST_DEBUG_TEMPROOT=/tmp python -m pytest tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box/subdirs/mender-docker-lifecycle-helper DEVCONTAINER_HOST_WORKSPACE_MOUNT=/workspaces/nam-box/subdirs/mender-docker-lifecycle-helper PYTEST_DEBUG_TEMPROOT=/tmp python -m pytest tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box/subdirs/mender-docker-lifecycle-helper DEVCONTAINER_HOST_WORKSPACE_MOUNT=/workspaces/nam-box/subdirs/mender-docker-lifecycle-helper PYTEST_DEBUG_TEMPROOT=/tmp python -c ' *)",
+      "Bash(PYTEST_DEBUG_TEMPROOT=/tmp pytest subdirs/mender-docker-lifecycle-helper/tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(PYTEST_DEBUG_TEMPROOT=/tmp python -m pytest subdirs/mender-docker-lifecycle-helper/tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box PYTEST_DEBUG_TEMPROOT=/tmp python -m pytest subdirs/mender-docker-lifecycle-helper/tests/unit/test_context.py::TestComposeContentFromFile -v)",
+      "Bash(DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box PYTEST_DEBUG_TEMPROOT=/tmp python -m pytest subdirs/mender-docker-lifecycle-helper/tests/unit/test_context.py::TestComposeContentFromFile::test_compose_content_with_extends_resolved -vv)",
+      "Bash(DEVCONTAINER_WORKSPACE_PATH=/workspaces/nam-box PYTEST_DEBUG_TEMPROOT=/tmp python -m pytest subdirs/mender-docker-lifecycle-helper/tests/unit/test_context.py::TestComposeContentFromFile::test_compose_content_with_multiple_directives -vv)",
+      "Bash(mkdir -p /workspaces/nam-box/services/bluetooth-mock)",
+      "Bash(python3 -m py_compile services/bluetooth-manager/main.py)",
+      "Bash(rm -rf /tmp/bleak-temp)",
+      "Bash(python3 -m py_compile services/bluetooth-manager/bleak-api.py)",
+      "Bash(git clone *)"
+    ],
+    "additionalDirectories": [
+      "/workspaces/nam-box/services",
+      "/tmp/bleak-temp"
     ]
-  }
+  },
+  "model": "poolside/laguna-m.1:free"
 }

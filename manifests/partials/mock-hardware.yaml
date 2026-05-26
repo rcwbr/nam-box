@@ -1,0 +1,9 @@
+x-common: &common
+  platform: ${PLATFORM}
+
+services:
+  bluetooth-manager:
+    <<: *common
+    image: ghcr.io/rcwbr/nam-box/bluetooth-mock:local
+    expose:
+      - "8000"

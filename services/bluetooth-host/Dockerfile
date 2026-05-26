@@ -6,8 +6,8 @@ FROM ubuntu:24.04
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bluez \
     dbus \
-    sudo
-
+    sudo \
+    pulseaudio-module-bluetooth
 
 COPY ./bluezuser.conf /etc/dbus-1/system.d/
 RUN useradd -m bluezuser \
@@ -15,6 +15,5 @@ RUN useradd -m bluezuser \
     && passwd -d bluezuser
 USER bluezuser
 
-COPY docker-entrypoint.sh /
-ENTRYPOINT [ "/docker-entrypoint.sh" ]
-LABEL io.containerd.image.name=ghcr.io/rcwbr/nam-box-bluetooth-host:local
+COPY entrypoint /
+ENTRYPOINT [ "/entrypoint" ]

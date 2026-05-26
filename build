@@ -4,4 +4,7 @@ set -e
 
 # docker buildx create --bootstrap --use --driver docker-container
 # docker buildx bake
-docker buildx bake webplayer $@
+# docker buildx bake --allow=fs=/var/buildx-cache bluetooth-host bluetooth-manager certs jack nam $@
+# export REGISTRY_PUSH=true
+# docker buildx bake --allow=fs=/var/buildx-cache bluetooth-manager $@
+docker buildx bake --allow=fs=/var/buildx-cache jack jalv nam $@

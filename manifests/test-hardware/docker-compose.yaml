@@ -1,0 +1,7 @@
+include:
+  - path: ../partials/certs.yaml
+    project_directory: ..
+    env_file: ../default.env
+  - path: ../partials/hardware.yaml
+    project_directory: ..
+    env_file: ../default.env

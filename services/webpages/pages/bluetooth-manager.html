@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bluetooth Manager - nam-box.local</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 700px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #0f0f1a;
+            color: #eee;
+        }
+        .container {
+            background: #1a1a2e;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+        }
+        h1 {
+            margin-top: 0;
+            color: #00d9ff;
+            font-size: 24px;
+        }
+        .status {
+            padding: 14px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: 500;
+            font-size: 15px;
+        }
+        .status.scanning { background: #78350f; color: #fdba74; border: 1px solid #ae5a2b; }
+        .status.idle { background: #1b4332; color: #52ff7d; border: 1px solid #2d7a46; }
+        .status.error { background: #7f1d1d; color: #fca5a5; border: 1px solid #a73d3d; }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            padding: 12px 24px;
+            font-size: 15px;
+            cursor: pointer;
+            margin-right: 10px;
+            background: #00d9ff;
+            border: none;
+            border-radius: 6px;
+            color: #1a1a2e;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+        button:hover:not(:disabled) { background: #00b8d9; }
+        button:disabled {
+            background: #444;
+            cursor: not-allowed;
+            color: #888;
+        }
+        .device-list {
+            margin-top: 20px;
+        }
+        .device-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: #0f0f23;
+            border-radius: 8px;
+            cursor: pointer;
+            border-left: 3px solid #00d9ff;
+            transition: background 0.2s;
+        }
+        .device-item:hover {
+            background: #1a1a3e;
+        }
+        .device-item.paired {
+            border-left-color: #52ff7d;
+        }
+        .device-item.connected {
+            border-left-color: #4ade80;
+            background: #1b4332;
+        }
+        .device-name {
+            font-weight: 600;
+            font-size: 16px;
+            color: #fff;
+        }
+        .device-address {
+            font-size: 12px;
+            color: #888;
+            font-family: monospace;
+            margin-top: 4px;
+        }
+        .device-meta {
+            font-size: 12px;
+            color: #aaa;
+            margin-top: 8px;
+        }
+        .device-meta span {
+            margin-right: 15px;
+            display: inline-block;
+        }
+        .device-uuids {
+            font-size: 11px;
+            color: #666;
+            margin-top: 6px;
+            word-break: break-all;
+        }
+        .pairing {
+            color: #fdba74;
+        }
+        .debug-section {
+            margin-top: 20px;
+            padding: 10px;
+            background: #0a0a1a;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 11px;
+            color: #aaa;
+        }
+        .debug-section h4 {
+            margin: 0 0 8px 0;
+            color: #00d9ff;
+            font-size: 12px;
+        }
+        .debug-section pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        #pairStatus {
+            display: none;
+            padding: 15px;
+            margin: 10px 0;
+            background: #78350f;
+            border-radius: 8px;
+            color: #fdba74;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Bluetooth Device Manager</h1>
+        <div style="font-size: 12px; color: #666; margin-bottom: 15px;">
+            API: <code>/api/bluetooth-manager</code>
+        </div>
+
+        <div id="status" class="status idle">Ready - Click Start Scan to discover devices</div>
+
+        <div class="controls">
+            <button id="scanBtn">Start Scan</button>
+            <button id="stopScanBtn" disabled>Stop Scan</button>
+        </div>
+
+        <div id="pairStatus"></div>
+
+        <div id="deviceList" class="device-list"></div>
+
+        <div class="debug-section">
+            <h4>Debug Log</h4>
+            <pre id="debugLog"></pre>
+        </div>
+    </div>
+
+    <script>
+        const bluetoothApi = '/api/bluetooth-manager';
+        const statusDiv = document.getElementById('status');
+        const scanBtn = document.getElementById('scanBtn');
+        const stopScanBtn = document.getElementById('stopScanBtn');
+        const deviceList = document.getElementById('deviceList');
+        const pairStatus = document.getElementById('pairStatus');
+        const debugLog = document.getElementById('debugLog');
+
+        let scanInterval = null;
+        let isScanning = false;
+
+        function log(message) {
+            const ts = new Date().toISOString().split('T')[1].split('.')[0];
+            debugLog.textContent += '[' + ts + '] ' + message + '\n';
+            debugLog.scrollTop = debugLog.scrollHeight;
+        }
+
+        function setStatus(message, type) {
+            if (type === undefined) type = 'idle';
+            statusDiv.textContent = message;
+            statusDiv.className = 'status ' + type;
+        }
+
+        async function startScan() {
+            try {
+                log('Starting discovery...');
+                const response = await fetch(bluetoothApi + '/discovery/start', { method: 'POST' });
+                const result = await response.json();
+                log('Discovery started: ' + JSON.stringify(result));
+
+                isScanning = true;
+                scanBtn.disabled = true;
+                stopScanBtn.disabled = false;
+                setStatus('Scanning for devices...', 'scanning');
+
+                scanInterval = setInterval(fetchDevices, 2000);
+                fetchDevices();
+            } catch (e) {
+                log('Start scan failed: ' + e.message);
+                setStatus('Scan failed: ' + e.message, 'error');
+            }
+        }
+
+        async function stopScan() {
+            try {
+                log('Stopping discovery...');
+                const response = await fetch(bluetoothApi + '/discovery/stop', { method: 'POST' });
+                log('Discovery stopped');
+            } catch (e) {
+                log('Stop scan failed: ' + e.message);
+            }
+
+            isScanning = false;
+            scanBtn.disabled = false;
+            stopScanBtn.disabled = true;
+            setStatus('Scan stopped - Click Start Scan to resume', 'idle');
+
+            if (scanInterval) {
+                clearInterval(scanInterval);
+                scanInterval = null;
+            }
+        }
+
+        async function fetchDevices() {
+            try {
+                const response = await fetch(bluetoothApi + '/devices');
+                const devices = await response.json();
+                renderDevices(devices);
+            } catch (e) {
+                log('Fetch devices failed: ' + e.message);
+            }
+        }
+
+        function renderDevices(devices) {
+            if (!devices || devices.length === 0) {
+                deviceList.innerHTML = '<div style="color:#666;padding:20px;text-align:center;">No devices found. Make sure Bluetooth is enabled and devices are discoverable.</div>';
+                return;
+            }
+
+            let html = '';
+            for (let i = 0; i < devices.length; i++) {
+                const device = devices[i];
+                let classes = 'device-item';
+                if (device.paired) classes += ' paired';
+                if (device.connected) classes += ' connected';
+
+                const uuids = (device.uuids && device.uuids.length > 0)
+                    ? device.uuids.slice(0, 3).join(', ') + (device.uuids.length > 3 ? '...' : '')
+                    : 'No UUIDs';
+
+                const name = device.name || 'Unknown Device';
+                const pairedText = device.paired ? 'Yes' : 'No';
+                const connectedText = device.connected ? 'Yes' : 'No';
+                const trustedText = device.trusted ? 'Yes' : 'No';
+                const rssiDisplay = (device.rssi !== null && device.rssi !== undefined) ? '<span>RSSI: ' + device.rssi + ' dBm</span>' : '';
+                const txPowerDisplay = (device.tx_power !== null && device.tx_power !== undefined) ? '<span>Tx: ' + device.tx_power + '</span>' : '';
+                const addressTypeDisplay = device.address_type ? '<span>Type: ' + device.address_type + '</span>' : '';
+                const manufacturerDisplay = device.manufacturer ? '<span>Vendor: ' + device.manufacturer + '</span>' : '';
+                const deviceTypesDisplay = device.device_types && device.device_types.length > 0 ? '<span>Types: ' + device.device_types.join(', ') + '</span>' : '';
+
+                const manufacturerDataStr = Object.keys(device.manufacturer_data).length > 0
+                    ? Object.entries(device.manufacturer_data).map(([k, v]) => k + ': ' + v).join(', ')
+                    : 'None';
+
+                html += '<div class="' + classes + '" onclick="pairDevice(\'' + device.address + '\')">';
+                html += '<div class="device-name">' + name + '</div>';
+                html += '<div class="device-address">' + device.address + '</div>';
+                html += '<div class="device-meta">';
+                html += '<span>Paired: ' + pairedText + '</span>';
+                html += '<span>Connected: ' + connectedText + '</span>';
+                html += '<span>Trusted: ' + trustedText + '</span>';
+                if (rssiDisplay) html += rssiDisplay;
+                if (txPowerDisplay) html += txPowerDisplay;
+                if (addressTypeDisplay) html += addressTypeDisplay;
+                if (manufacturerDisplay) html += manufacturerDisplay;
+                html += '</div>';
+                if (deviceTypesDisplay) html += '<div class="device-meta">' + deviceTypesDisplay + '</div>';
+                html += '<div class="device-uuids">UUIDs: ' + uuids + '</div>';
+                html += '<div class="device-uuids" style="color:#888">Manuf: ' + manufacturerDataStr + '</div>';
+                html += '</div>';
+            }
+            deviceList.innerHTML = html;
+        }
+
+        async function pairDevice(address) {
+            try {
+                pairStatus.style.display = 'block';
+                pairStatus.textContent = 'Pairing with ' + address + '...';
+                pairStatus.className = 'pairing';
+
+                log('Pairing device: ' + address);
+                const response = await fetch(bluetoothApi + '/pair', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ address: address })
+                });
+                const result = await response.json();
+                log('Pair result: ' + JSON.stringify(result));
+
+                if (response.ok) {
+                    pairStatus.textContent = 'Successfully initiated pairing with ' + address;
+                    pairStatus.className = 'status connected';
+                    fetchDevices();
+                } else {
+                    pairStatus.textContent = 'Pairing failed: ' + (result.detail || 'Unknown error');
+                    pairStatus.className = 'status error';
+                }
+            } catch (e) {
+                log('Pair request failed: ' + e.message);
+                pairStatus.textContent = 'Error: ' + e.message;
+                pairStatus.className = 'status error';
+            }
+        }
+
+        scanBtn.addEventListener('click', startScan);
+        stopScanBtn.addEventListener('click', stopScan);
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-MDLH_IMAGE="${MDLH_IMAGE:-ghcr.io/rcwbr/mender-docker-lifecycle-helper:39-merge-2f38cf3fe20727fa9379810735a416ee2d236a7c}"
+MDLH_IMAGE="${MDLH_IMAGE:-ghcr.io/rcwbr/mender-docker-lifecycle-helper:1.4.0}"
 MDLH_ARGS="${MDLH_ARGS:-}$*"
 
 # shellcheck disable=SC2086

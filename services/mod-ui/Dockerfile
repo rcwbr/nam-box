@@ -15,4 +15,3 @@ RUN make -C utils
 
 ENV MOD_DEV_HOST=1
 ENTRYPOINT [ "/opt/mod-ui/server.py" ]
-LABEL io.containerd.image.name=ghcr.io/rcwbr/nam-box-mod-ui:local

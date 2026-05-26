@@ -1,0 +1,35 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="NAM Box - Welcome">
+    <div class="space-y-7 text-center">
+      <h1 class="text-5xl lcd-accent tracking-widest uppercase">
+        NAM <span class="text-lcd-300">Box</span>
+      </h1>
+      <div class="lcd-divider my-6"></div>
+      <p class="text-lg lcd-text leading-relaxed">
+        HARDWARE INTERFACE READY
+      </p>
+      <div class="flex flex-wrap gap-3 justify-center pt-4">
+        <a
+        href="/bluetooth/"
+          class="lcd-button px-4 py-2 text-sm tracking-widest"
+        >
+          BLUETOOTH
+        </a>
+        <a
+        href="/dashboard/"
+          class="lcd-button px-4 py-2 text-sm tracking-widest"
+        >
+          START
+        </a>
+        <a
+        href="/docs/"
+          class="lcd-button px-4 py-2 text-sm tracking-widest"
+        >
+          INFO
+        </a>
+      </div>
+    </div>
+</Layout>
