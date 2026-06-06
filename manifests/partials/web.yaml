@@ -8,12 +8,3 @@ services:
     depends_on:
       bluetooth-manager:
         condition: service_started
-
-  # webpages:
-  #   <<: *common
-  #   image: ghcr.io/rcwbr/nam-box/webpages:local
-  #   depends_on:
-  #     proxy:
-  #       condition: service_started
-  #   networks:
-  #     - internal

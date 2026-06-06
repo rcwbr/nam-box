@@ -23,5 +23,6 @@ services:
     depends_on:
       bluetooth-host:
         condition: service_started
+
 volumes:
   bluetooth-dbus:
