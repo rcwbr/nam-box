@@ -1,0 +1,57 @@
+module(
+    name = "jack_bazel",
+    version = "0.1.0",
+)
+
+bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "llvm", version = "0.8.3")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "ncurses", version = "6.4.20221231.bcr.11")
+bazel_dep(name = "alsa_lib", version = "1.2.9.bcr.4")
+
+toolchain = use_extension("@llvm//extensions:toolchain.bzl", "toolchain")
+toolchain.exec(arch = "x86_64", os = "linux")
+toolchain.exec(arch = "aarch64", os = "linux")
+toolchain.target(arch = "x86_64", os = "linux")
+toolchain.target(arch = "aarch64", os = "linux")
+use_repo(toolchain, "llvm_toolchains")
+register_toolchains("@llvm_toolchains//:all")
+
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+# libsamplerate - sample rate conversion library
+http_archive(
+    name = "samplerate",
+    sha256 = "16e881487f184250deb4fcb60432d7556ab12cb58caea71ef23960aec6c0405a",
+    strip_prefix = "libsamplerate-0.2.2",
+    urls = ["https://github.com/libsndfile/libsamplerate/archive/refs/tags/0.2.2.tar.gz"],
+    build_file = "@//thirdparty:samplerate.BUILD",
+)
+
+# JACK Audio Connection Kit - server and client library
+http_archive(
+    name = "jack",
+    sha256 = "1e42b9fc4ad7db7befd414d45ab2f8a159c0b30fcd6eee452be662298766a849",
+    strip_prefix = "jack2-1.9.22",
+    urls = ["https://github.com/jackaudio/jack2/archive/refs/tags/v1.9.22.tar.gz"],
+    build_file = "@//thirdparty:jack.BUILD",
+)
+
+# # libsndfile - audio file I/O library
+# http_archive(
+#     name = "sndfile",
+#     sha256 = "421bd9beb4dc89371a84fd5ce8d62fe1d0b2003b827d615d0d40bdf5b81b36f",
+#     strip_prefix = "libsndfile-1.0.31",
+#     urls = ["https://github.com/libsndfile/libsndfile/releases/download/1.0.31/libsndfile-1.0.31.tar.gz"],
+#     build_file = "@//thirdparty:sndfile.BUILD",
+# )
+
+# # ALSA library - for Linux audio driver
+# # Using http_archive instead of git_repository for reliability
+# http_archive(
+#     name = "alsa",
+#     sha256 = "a7bc6c09f0e5a622ebc8afb63a194aa1396145b5c6433d3445363201d96c23c4",
+#     strip_prefix = "alsa-lib-1.2.14",
+#     urls = ["https://github.com/alsa-project/alsa-lib/archive/refs/tags/v1.2.14.tar.gz"],
+#     build_file = "@//thirdparty:alsa.BUILD",
+# )

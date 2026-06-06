@@ -1,0 +1,21 @@
+x-common: &common
+  platform: ${PLATFORM}
+
+services:
+  proxy:
+    <<: *common
+    image: ghcr.io/rcwbr/nam-box/proxy:local
+    volumes:
+      - /opt/nam-box/ssl/nam-box.local:/etc/nam-box/ssl
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CN: nam-box.local
+    depends_on:
+      bluetooth-manager:
+        condition: service_started
+      web:
+        condition: service_started
+      mod-host:
+        condition: service_started

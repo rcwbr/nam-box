@@ -3,10 +3,10 @@ load("@rules_cc//cc:defs.bzl", "cc_binary")
 package(default_visibility = ["//visibility:public"])
 
 #
-# Jalv LV2 Host with JACK backend
-# Uses JACK audio backend for audio I/O
+# Jalv LV2 Host (statically linked)
+# Built without SUIL to avoid dynamic module loading issues
+# Uses JACK for audio backend via the system-installed libjack-dev
 #
-
 cc_binary(
     name = "jalv",
     srcs = glob(
@@ -22,7 +22,6 @@ cc_binary(
     deps = [
         "@lv2_headers//:lv2",
         "@lilv//:lilv",
-        "@suil//:suil",
         "@zix//:zix",
         "@sratom//:sratom",
         "@serd//:serd",
@@ -34,11 +33,8 @@ cc_binary(
         "-lpthread",
         "-lrt",
         "-ldl",
-        "-ljack",
     ],
-    defines = [
-        "JALV_CONFIG_USE_SUIL",
-    ],
+    linkstatic = True,
 )
 
 # Jalv source files for reference

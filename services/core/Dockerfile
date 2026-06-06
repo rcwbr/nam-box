@@ -12,47 +12,33 @@ RUN apt-get update && apt-get install -y \
     && wget "${BINARY_URL}" -O /tmp/neural_amp_modeler_lv2.tgz \
     && wget https://raw.githubusercontent.com/mikeoliphant/NeuralAudio/refs/tags/v0.1.0/Utils/Models/BossWN-feather.nam -O /tmp/BossWN-feather.nam
 
-
-FROM python:3.12.4 AS builder
-
-RUN apt-get update && apt-get install -y build-essential pkg-config
-RUN apt-get install -y lv2-dev
-RUN apt-get install -y libjack-jackd2-dev
-RUN apt-get install -y liblilv-dev
-# RUN apt-get install -y
-# RUN apt-get install -y
-
-WORKDIR /tmp/mod-host
-RUN --mount=type=bind,from=github-mod-host,target=.,rw \
-    make \
-    && make install
-
-
-FROM ubuntu:24.04 AS runtime
+FROM python:3.12
 
 RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
     jackd2 \
-    liblilv-0-0 \
+    jalv \
     && rm -rf /var/lib/apt/lists/*
 
-# TODO use pyenv Dockerfile layer
-RUN pip3 install --break-system-packages --no-cache-dir fastapi uvicorn[standard] python-multipart
+# Install Python dependencies
+RUN pip install --no-cache-dir fastapi uvicorn[standard] python-multipart
 
 ENV LV2_PATH=/opt/lv2
-RUN --mount=type=bind,from=loader,source=/tmp,destination=/tmp \
-    mkdir -p ${LV2_PATH} \
+RUN mkdir -p ${LV2_PATH} \
     && mkdir -p /opt/nam/models \
-    && mkdir -p /var/nam \
-    && cd ${LV2_PATH} \
+    && mkdir -p /var/nam
+
+RUN --mount=type=bind,from=loader,source=/tmp,destination=/tmp \
+    cd ${LV2_PATH} \
     && tar xf /tmp/neural_amp_modeler_lv2.tgz \
     && cp /tmp/BossWN-feather.nam /opt/nam/models/
 
-COPY --from=builder /usr/local/bin/mod-host /usr/local/bin/mod-host
+# Create default model config
+RUN echo "/opt/nam/models/BossWN-feather.nam" > /opt/nam/models/current_model.txt
 
-COPY main.py /opt/nam/main.py
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+ENV DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/shm/dbus-session
 
-ENTRYPOINT [ "/entrypoint.sh" ]
+COPY entrypoint.sh /opt/nam/
+RUN chmod +x /opt/nam/entrypoint.sh
+COPY main.py /opt/nam/
+
+ENTRYPOINT ["/opt/nam/entrypoint.sh"]

@@ -63,7 +63,19 @@
       "Bash(python3 -m py_compile services/bluetooth-manager/main.py)",
       "Bash(rm -rf /tmp/bleak-temp)",
       "Bash(python3 -m py_compile services/bluetooth-manager/bleak-api.py)",
-      "Bash(git clone *)"
+      "Bash(git clone *)",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/JackAPI.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/JackDummyDriver.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/common/JackDummyDriver.cpp\")",
+      "Bash(curl -sL \"https://api.github.com/repos/jackaudio/jack2/contents/common?ref=v1.9.22\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/JackPlatform.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/JackPlatformSpecific.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/JackDummyDriver.cpp\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/JackCompilerDeps.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/JackCompilerDeps_os.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/linux/JackCompilerDeps_os.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/posix/JackCompilerDeps_os.h\")",
+      "Bash(curl -sL \"https://raw.githubusercontent.com/jackaudio/jack2/v1.9.22/common/JackDriverLoader.cpp\")"
     ],
     "additionalDirectories": [
       "/workspaces/nam-box/services",

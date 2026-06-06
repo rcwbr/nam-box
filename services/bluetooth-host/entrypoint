@@ -16,5 +16,7 @@ echo -e "\r$msg done! (in $time s)"
 sudo hciconfig hci0 down
 sudo hciconfig hci0 up
 
+# TODO bluetoothctl agent on
+
 # Keep container running with bluetooth daemon
 tail -f /dev/null

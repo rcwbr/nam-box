@@ -9,10 +9,14 @@ RUN apt-get update && apt-get install -y \
 # Ensure /dev/shm is writable for JACK ringbuffers
 RUN mkdir -p /dev/shm && chmod 1777 /dev/shm
 
+# Create shared directory for JACK client sockets
+RUN mkdir -p /jack-sockets && chmod 1777 /jack-sockets
+
 # Create non-root user
 RUN useradd -m -s /bin/bash jack && \
-    chown -R jack:jack /dev/shm
+    chown -R jack:jack /dev/shm /jack-sockets && \
+    usermod -a -G audio jack
 
-ENTRYPOINT [ "bash", "-c", "dbus-daemon --session --fork --address=unix:path=/tmp/dbus-session && export DBUS_SESSION_BUS_ADDRESS=unix:path=/tmp/dbus-session && jackd -d alsa -d hw:DUOCAPTURE -r 48000" ]
+ENTRYPOINT [ "bash", "-c", "dbus-daemon --session --fork --address=unix:path=/dev/shm/dbus-session && export DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/shm/dbus-session && jackd -d alsa -d hw:DUOCAPTURE -r 48000" ]
 
 # ENTRYPOINT ["jackd", "-d", "alsa", "-r", "48000", "-p", "512"]

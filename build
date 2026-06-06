@@ -3,6 +3,7 @@
 set -e
 
 # docker buildx create --bootstrap --use --driver docker-container
+# sudo mkdir /var/buildx-cache && sudo chown -R $USER:$USER /var/buildx-cache
 # docker buildx bake
 # docker buildx bake --allow=fs=/var/buildx-cache bluetooth-host bluetooth-manager certs jack nam $@
 # export REGISTRY_PUSH=true

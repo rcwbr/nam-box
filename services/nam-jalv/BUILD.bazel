@@ -1,0 +1,33 @@
+package(default_visibility = ["//visibility:public"])
+
+# LLVM toolchain platform for ARM64 (cross-compilation target)
+# This platform is pre-configured by the llvm extension to use the correct toolchain
+platform(
+    name = "arm64_platform",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:linux",
+    ],
+)
+
+# Alias to the LLVM-provided ARM64 platform (alternative using the exact LLVM platform)
+alias(
+    name = "arm64_llvm_platform",
+    actual = "@llvm_toolchains//:linux_aarch64_platform",
+)
+
+# Native build targets
+alias(
+    name = "nam_lv2_plugin",
+    actual = "@nam_lv2//:neural_amp_modeler",
+)
+
+alias(
+    name = "jalv",
+    actual = "@jalv//:jalv",
+)
+
+alias(
+    name = "jalv_srcs",
+    actual = "@jalv//:jalv_srcs",
+)

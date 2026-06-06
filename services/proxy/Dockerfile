@@ -2,6 +2,8 @@ FROM nginx:1.30.0-alpine
 
 RUN apk add --no-cache openssl
 
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
 COPY <<'EOF' /usr/local/bin/entrypoint
 #!/bin/sh
 set -e
@@ -69,8 +71,13 @@ SERVERCONF
   chmod 644 "$SRV_KEY" "$SRV_CRT"
   echo "Server certificate generated"
 fi
+
+# Start nginx after certs are ready
+exec nginx -g 'daemon off;'
 EOF
 
 RUN chmod +x /usr/local/bin/entrypoint
+
+EXPOSE 80 443
 
 ENTRYPOINT ["entrypoint"]

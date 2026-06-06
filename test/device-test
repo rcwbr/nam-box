@@ -2,7 +2,8 @@
 
 set -e
 
-docker buildx bake --allow=fs=/var/buildx-cache jack nam $@
+# docker buildx bake --allow=fs=/var/buildx-cache jack-bazel $@
+docker buildx bake --allow=fs=/var/buildx-cache core $@
 
 MDLH_ARGS="${MDLH_ARGS:-}$*"
 
@@ -13,8 +14,7 @@ MDLH_ARGS="${MDLH_ARGS:-}$*"
   --wait-for-deploy \
   --device-type raspberrypi5 \
   --device-group nam-box-test \
-  --service-file nam ./nam.tar \
-  --service-file jack ./jack.tar \
+  --service-file core ./core.tar \
   --log-level DEBUG \
   --cache-limit-percent 20.0 \
   ${MDLH_ARGS} \

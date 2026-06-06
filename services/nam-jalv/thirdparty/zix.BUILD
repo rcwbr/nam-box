@@ -22,5 +22,8 @@ cc_library(
         "src/**/*.h",
     ]),
     includes = ["include", "src"],
-    defines = ["ZIX_STATIC"],
+    defines = [
+        "ZIX_STATIC",
+        "_GNU_SOURCE",
+    ],
 )

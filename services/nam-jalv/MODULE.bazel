@@ -3,26 +3,28 @@ module(
     version = "0.1.9",
 )
 
-bazel_dep(name = "rules_cc", version = "0.2.17")
+bazel_dep(name = "rules_cc", version = "0.2.18")
+bazel_dep(name = "llvm", version = "0.8.3")
+bazel_dep(name = "platforms", version = "1.1.0")
+bazel_dep(name = "alsa_lib", version = "1.2.9.bcr.4")
+
+toolchain = use_extension("@llvm//extensions:toolchain.bzl", "toolchain")
+toolchain.exec(arch = "x86_64", os = "linux")
+toolchain.exec(arch = "aarch64", os = "linux")
+toolchain.target(arch = "x86_64", os = "linux")
+toolchain.target(arch = "aarch64", os = "linux")
+use_repo(toolchain, "llvm_toolchains")
+register_toolchains("@llvm_toolchains//:all")
 
 http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 
-# JACK Audio Connection Kit
-git_repository(
-    name = "jack",
-    commit = "17959465a722225a36a8b612aed26764036f258e",
-    remote = "https://github.com/jackaudio/jack2",
-    recursive_init_submodules = True,
-    build_file = "@//thirdparty:jack.BUILD",
-)
-
 # LV2 headers
 http_archive(
     name = "lv2_headers",
-    sha256 = "78c51bcf21b54e58bb6329accbb4dae03b2ed79b520f9a01e734bd9de530953f",
-    strip_prefix = "lv2-1.18.10",
-    urls = ["https://lv2plug.in/spec/lv2-1.18.10.tar.xz"],
+    sha256 = "edc39ae4170d21574d7fe4da2d83d9f1cdf97316b87b4dfeda390a1864c4a8d6",
+    strip_prefix = "lv2-v1.18.10",
+    urls = ["https://gitlab.com/lv2/lv2/-/archive/v1.18.10/lv2-v1.18.10.tar.gz"],
     build_file = "@//thirdparty:lv2.BUILD",
 )
 
@@ -86,6 +88,24 @@ http_archive(
     build_file = "@//thirdparty:nlohmann_json.BUILD",
 )
 
+# libsamplerate - sample rate conversion library
+http_archive(
+    name = "samplerate",
+    sha256 = "16e881487f184250deb4fcb60432d7556ab12cb58caea71ef23960aec6c0405a",
+    strip_prefix = "libsamplerate-0.2.2",
+    urls = ["https://github.com/libsndfile/libsamplerate/archive/refs/tags/0.2.2.tar.gz"],
+    build_file = "@//thirdparty:samplerate.BUILD",
+)
+
+# JACK Audio Connection Kit - server and client library
+http_archive(
+    name = "jack",
+    sha256 = "1e42b9fc4ad7db7befd414d45ab2f8a159c0b30fcd6eee452be662298766a849",
+    strip_prefix = "jack2-1.9.22",
+    urls = ["https://github.com/jackaudio/jack2/archive/refs/tags/v1.9.22.tar.gz"],
+    build_file = "@//thirdparty:jack.BUILD",
+)
+
 # jalv - LV2 host for running plugins
 git_repository(
     name = "jalv",
@@ -134,7 +154,7 @@ git_repository(
     build_file = "@//thirdparty:lilv.BUILD",
 )
 
-# suil - LV2 UI library
+# suil - LV2 UI library (kept for potential future use)
 git_repository(
     name = "suil",
     commit = "3100c21f864aacbeece57a3bd93af340074f34cb",

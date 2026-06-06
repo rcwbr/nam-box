@@ -1,17 +1,5 @@
 # Redefining vs. overriding targets due to override value clearing bug in buildx 0.19.1 (vs. 0.22.0)
 
-group "default" {
-  targets = [
-    "bluetooth-mock",
-    "bluetooth-manager",
-    "certs",
-    # "jack",
-    # "mod-host",
-    # "mod-ui",
-    "webpages"
-  ]
-}
-
 target "common" {
   output = ["type=docker"]
 }
@@ -42,16 +30,33 @@ target "bluetooth-manager" {
   ]
 }
 
-target "certs" {
+target "core" {
   inherits   = ["common"]
-  context    = "services/certs"
+  context    = "services/mod-host"
+  contexts = {
+    github-mod-host = "https://github.com/rcwbr/mod-host.git#2025-12-10"
+  }
+  # context    = "services/core" TODO
   dockerfile = "Dockerfile"
-  tags       = ["ghcr.io/rcwbr/nam-box/certs:local"]
+  tags       = ["ghcr.io/rcwbr/nam-box/core:local"]
   cache-from = [
-    "type=local,src=/var/buildx-cache/certs"
+    "type=local,src=/var/buildx-cache/core"
   ]
   cache-to = [
-    "type=local,dest=/var/buildx-cache/certs,mode=max"
+    "type=local,dest=/var/buildx-cache/core,mode=max"
+  ]
+}
+
+target "proxy" {
+  inherits   = ["common"]
+  context    = "services/proxy"
+  dockerfile = "Dockerfile"
+  tags       = ["ghcr.io/rcwbr/nam-box/proxy:local"]
+  cache-from = [
+    "type=local,src=/var/buildx-cache/proxy"
+  ]
+  cache-to = [
+    "type=local,dest=/var/buildx-cache/proxy,mode=max"
   ]
 }
 
@@ -64,6 +69,18 @@ target "jack" {
   ]
   cache-to = [
     "type=local,dest=/var/buildx-cache/jack,mode=max"
+  ]
+}
+
+target "jack-bazel" {
+  inherits = ["common"]
+  context  = "services/jack-bazel"
+  tags     = ["ghcr.io/rcwbr/nam-box/jack-bazel:local"]
+  cache-from = [
+    "type=local,src=/var/buildx-cache/jack-bazel"
+  ]
+  cache-to = [
+    "type=local,dest=/var/buildx-cache/jack-bazel,mode=max"
   ]
 }
 
@@ -136,16 +153,16 @@ target "nam" {
   ]
 }
 
-target "nam-bazel" {
+target "nam-jalv" {
   inherits   = ["common"]
-  context    = "services/nam-bazel"
+  context    = "services/nam-jalv"
   dockerfile = "Dockerfile"
-  tags       = ["ghcr.io/rcwbr/nam-box/nam-bazel:local"]
+  tags       = ["ghcr.io/rcwbr/nam-box/nam-jalv:local"]
   cache-from = [
-    "type=local,src=/var/buildx-cache/nam-bazel"
+    "type=local,src=/var/buildx-cache/nam-jalv"
   ]
   cache-to = [
-    "type=local,dest=/var/buildx-cache/nam-bazel,mode=max"
+    "type=local,dest=/var/buildx-cache/nam-jalv,mode=max"
   ]
 }
 

@@ -23,7 +23,5 @@ services:
     depends_on:
       bluetooth-host:
         condition: service_started
-      certs:
-        condition: service_completed_successfully
 volumes:
   bluetooth-dbus:

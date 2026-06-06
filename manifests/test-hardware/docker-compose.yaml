@@ -1,5 +1,5 @@
 include:
-  - path: ../partials/certs.yaml
+  - path: ../partials/proxy.yaml
     project_directory: ..
     env_file: ../default.env
   - path: ../partials/hardware.yaml

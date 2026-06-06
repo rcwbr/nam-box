@@ -1,9 +1,11 @@
 include:
-  - path: ../partials/certs.yaml
+  - path: ../partials/proxy.yaml
     project_directory: ..
     env_file: ../dev.env
   - path: ../partials/mock-hardware.yaml
     project_directory: ..
+    env_file: ../dev.env
+  - path: ../partials/core.yaml
     env_file: ../dev.env
   - path: ../partials/web.yaml
     project_directory: ..

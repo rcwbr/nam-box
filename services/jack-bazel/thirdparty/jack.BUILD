@@ -1,0 +1,580 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
+package(default_visibility = ["//visibility:public"])
+
+# JACK public API headers
+filegroup(
+    name = "jack_headers",
+    srcs = glob([
+        "common/jack/*.h",
+    ]),
+)
+
+# All common headers needed for building (both public and internal)
+filegroup(
+    name = "jack_common_headers",
+    srcs = glob([
+        "common/Jack*.h",
+        "common/*.h",
+    ]),
+)
+
+# POSIX-specific headers
+filegroup(
+    name = "jack_posix_headers",
+    srcs = glob([
+        "posix/*.h",
+        "linux/*.h",
+    ]),
+)
+
+# ALSA driver headers
+filegroup(
+    name = "jack_alsa_headers",
+    srcs = glob([
+        "linux/alsa/*.h",
+    ]),
+)
+
+filegroup(
+    name = "cpp_internal_srcs",
+    srcs = glob(
+        [
+            "common/**/*.cpp",
+            "linux/**/*.cpp",
+            "posix/**/*.cpp",
+        ],
+        exclude = [
+            "linux/iio/**/*",
+            "linux/firewire/**/*",
+            "**/JackAC3Encoder*",
+            "**/JackLibClient*",
+            "**/JackLibAPI*",
+            "**/Jackdmp*",        # Main entry point, only for jackd binary
+            "**/JackDummyDriver*",
+            "**/JackLoopbackDriver*",
+            "**/JackNetDriver*",
+            "**/JackNetOneDriver*",
+            "**/JackProxyDriver*",
+            "**/JackAlsaDriver*",
+            "**/JackALSARawMidiDriver*",
+            "**/JackNetManager*",
+            "**/JackProfiler*",
+            "**/JackNetAdapter*",
+            "**/JackAlsaAdapter*",
+        ]
+    ),
+)
+
+filegroup(
+    name = "cpp_internal_headers",
+    srcs = glob(
+        [
+            "common/**/*.h",
+            "dbus/**/*.h",
+            "linux/**/*.h",
+            "posix/**/*.h",
+        ],
+        exclude = [
+            "linux/iio/**/*",
+            "linux/firewire/**/*",
+            "**/JackAC3Encoder*",
+            "**/JackLibClient*",
+            "**/JackLibAPI*",
+        ]
+    ),
+)
+
+filegroup(
+    name = "cpp_lib_srcs",
+    srcs = glob(
+        [
+            "common/**/*.cpp",
+            "linux/**/*.cpp",
+            "posix/**/*.cpp",
+        ],
+        exclude = [
+            "linux/iio/**/*",
+            "linux/firewire/**/*",
+            "**/JackAC3Encoder*",
+            "**/JackInternalClient*",
+            "**/JackInternalAPI*",
+        ]
+    ),
+)
+
+
+filegroup(
+    name = "cpp_lib_headers",
+    srcs = glob(
+        [
+            "common/**/*.h",
+            "dbus/**/*.h",
+            "linux/**/*.h",
+            "posix/**/*.h",
+        ],
+        exclude = [
+            "linux/iio/**/*",
+            "linux/firewire/**/*",
+            "**/JackAC3Encoder*",
+            # "**/JackInternalClient*", TODO remove?
+            "**/JackInternalAPI*",
+        ]
+    ),
+)
+
+filegroup(
+    name = "c_srcs",
+    srcs = glob(
+        [
+            "common/**/*",
+            # "dbus/**/*", TODO remove?
+            "linux/**/*",
+            "posix/**/*",
+        ],
+        exclude = [
+            "**/*.cpp",
+            "**/JackWeakAPI*",
+            "**/usx2y*",
+        ]
+    ),
+)
+
+cc_library(
+    name = "cpp_internal",
+    includes = [
+        "common",
+        "common/jack",
+        "linux",
+        "linux/alsa",
+        "posix",
+    ],
+    hdrs = [":cpp_internal_headers"],
+    srcs = [":cpp_internal_srcs"],
+    copts = [
+        "-std=c++14",
+        "-Wno-register",
+        "-Wno-error=register",
+    ],
+    deps = [
+        "@samplerate//:samplerate",
+        "@alsa_lib//:alsa_lib",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    local_defines = [
+        "ADDON_DIR=\\\"/usr/local/lib/jack\\\"", # TODO: this must match destination path of runfiles in Dockerfile
+        "JACKMP",
+        "SERVER_SIDE",
+    ],
+)
+
+cc_library(
+    name = "cpp_lib",
+    includes = [
+        "common",
+        "common/jack",
+        "linux",
+        "linux/alsa",
+        "posix",
+    ],
+    hdrs = [":cpp_lib_headers"],
+    srcs = [":cpp_lib_srcs"],
+    copts = [
+        "-std=c++14",
+        "-Wno-register",
+        "-Wno-error=register",
+    ],
+    deps = [
+        "@samplerate//:samplerate",
+        "@alsa_lib//:alsa_lib",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    local_defines = [
+        "ADDON_DIR=\\\"/usr/local/lib/jack\\\"", # TODO: this must match destination path of runfiles in Dockerfile
+        "JACKMP",
+        "SERVER_SIDE",
+    ],
+)
+
+cc_library(
+    name = "c_internal",
+    includes = [
+        "common",
+        "common/jack",
+        "linux",
+        "linux/alsa",
+        "posix",
+    ],
+    srcs = [":c_srcs"],
+    deps = [
+        "@alsa_lib//:alsa_lib",
+        ":cpp_internal",
+    ],
+     local_defines = [
+        "JACKMP",
+    ],
+)
+
+cc_library(
+    name = "c_lib",
+    includes = [
+        "common",
+        "common/jack",
+        "linux",
+        "linux/alsa",
+        "posix",
+    ],
+    srcs = [":c_srcs"],
+    deps = [
+        "@alsa_lib//:alsa_lib",
+        ":cpp_internal",
+    ],
+     local_defines = [
+        "JACKMP",
+    ],
+)
+
+# jack_internal is a shared library that core symbols are exported from
+# cc_library creates libjack_internal.so which can be loaded by drivers at runtime
+cc_library(
+    name = "jack_internal",
+    deps = [
+        ":cpp_internal",
+        ":c_internal",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    visibility = ["//visibility:public"]
+)
+
+cc_library(
+    name = "jack",
+    deps = [
+        ":cpp_lib",
+        ":c_lib",
+    ],
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_dummy.so",
+    srcs = ["common/JackDummyDriver.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+        "-Wl,-rpath,/usr/local/lib/jack",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_loopback.so",
+    srcs = ["common/JackLoopbackDriver.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_net.so",
+    srcs = ["common/JackNetDriver.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_netone.so",
+    srcs = ["common/JackNetOneDriver.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_proxy.so",
+    srcs = ["common/JackProxyDriver.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_alsa.so",
+    srcs = ["linux/alsa/JackAlsaDriver.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_alsarawmidi.so",
+    srcs = ["linux/alsarawmidi/JackALSARawMidiDriver.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_netmanager.so",
+    srcs = ["common/JackNetManager.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_profiler.so",
+    srcs = ["common/JackProfiler.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_netadapter.so",
+    srcs = ["common/JackNetAdapter.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jack_audioadapter.so",
+    srcs = ["linux/alsa/JackAlsaAdapter.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-fPIC",
+        "-fvisibility=default",
+        "-Wno-register",  # TODO: JACK uses deprecated 'register' keyword for platform compatibility
+        "-Wno-error=register",
+    ],
+    local_defines = [
+        "SERVER_SIDE",
+    ],
+    linkopts = [
+        "-Wl,-rpath,/usr/local/lib/jack",
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+    ],
+    linkshared = True,
+    visibility = ["//visibility:public"]
+)
+
+cc_binary(
+    name = "jackd",
+    srcs = ["common/Jackdmp.cpp"],
+    deps = [
+        ":jack_internal",
+    ],
+    copts = [
+        "-Wno-register",
+        "-Wno-error=register",
+    ],
+    linkopts = [
+        "-lpthread",
+        "-lrt",
+        "-ldl",
+        "-lm",
+        "-Wl,-rpath,/usr/local/lib/jack",
+    ],
+    visibility = ["//visibility:public"]
+)

@@ -1,7 +1,9 @@
 include:
-  - path: partials/hardware.yaml
+  - path: partials/proxy.yaml
     env_file: default.env
+  # - path: partials/hardware.yaml
+  #   env_file: default.env
   - path: partials/core.yaml
     env_file: default.env
-  - path: partials/web.yaml
-    env_file: default.env
+  # - path: partials/web.yaml
+  #   env_file: default.env

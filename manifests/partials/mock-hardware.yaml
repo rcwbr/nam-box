@@ -4,6 +4,9 @@ x-common: &common
 services:
   bluetooth-manager:
     <<: *common
-    image: ghcr.io/rcwbr/nam-box/bluetooth-mock:local
+    image: nginx:alpine
+    command: [ "nginx", "-g", "daemon off;"]
     expose:
       - "8000"
+    volumes:
+      - ./partials/bluetooth-mock.nginx.conf:/etc/nginx/conf.d/default.conf:ro

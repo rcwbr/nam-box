@@ -3,9 +3,8 @@
 set -e
 
 if [ "$1" = "down" ]; then
-  docker compose --file ./manifests/nam-box/docker-compose.dev.yaml down
+  docker compose --file ./manifests/test-dev/docker-compose.yaml down
 else
-# docker buildx bake --allow=fs=/var/buildx-cache -f local.docker-bake.hcl jack nam
-  docker buildx bake --allow=fs=/var/buildx-cache -f local.docker-bake.hcl web
-  docker compose --file ./manifests/nam-box/docker-compose.dev.yaml up -d --wait --remove-orphans
+  # docker buildx bake --allow=fs=/var/buildx-cache -f local.docker-bake.hcl web proxy
+  docker compose --file ./manifests/test-dev/docker-compose.yaml up -d --wait --remove-orphans
 fi
