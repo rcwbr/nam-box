@@ -1,8 +1,9 @@
-FROM nginx:1.30.0-alpine
+FROM traefik:v3.7.4
 
 RUN apk add --no-cache openssl
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY traefik.yml /etc/traefik/traefik.yml
+COPY tls.yml /etc/traefik/tls.yml
 
 COPY <<'EOF' /usr/local/bin/entrypoint
 #!/bin/sh
@@ -72,8 +73,8 @@ SERVERCONF
   echo "Server certificate generated"
 fi
 
-# Start nginx after certs are ready
-exec nginx -g 'daemon off;'
+# Start traefik after certs are ready
+exec traefik
 EOF
 
 RUN chmod +x /usr/local/bin/entrypoint

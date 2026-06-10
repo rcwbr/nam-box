@@ -15,10 +15,13 @@ RUN apt-get update && apt-get install -y \
 
 FROM python:3.12.4 AS builder
 
-RUN apt-get update && apt-get install -y build-essential pkg-config
-RUN apt-get install -y lv2-dev
-RUN apt-get install -y libjack-jackd2-dev
-RUN apt-get install -y liblilv-dev
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    pkg-config \
+    lv2-dev \
+    libjack-jackd2-dev \
+    liblilv-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp/mod-host
 RUN --mount=type=bind,from=github-mod-host,target=.,rw \

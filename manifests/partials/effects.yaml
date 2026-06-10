@@ -1,0 +1,40 @@
+x-common: &common
+  platform: ${PLATFORM}
+
+services:
+  effects:
+    <<: *common
+    image: ghcr.io/rcwbr/nam-box/effects:local
+    devices:
+      - "/dev/snd:/dev/snd"
+    volumes:
+      - "/dev/snd:/dev/snd"
+      - effects-state:/var/nam
+      - effects-models:/opt/nam/models
+    cap_add:
+      - SYS_NICE
+      - SYS_RAWIO
+      - IPC_LOCK
+    security_opt:
+      - seccomp=unconfined
+    privileged: true
+    environment:
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/shm/dbus-session
+    shm_size: 700M
+    ulimits:
+      memlock: -1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.effects-strip.stripprefix.prefixes=/api/effects,/api/effects/"
+      - "traefik.http.routers.effects.rule=PathPrefix(`/api/effects`)"
+      - "traefik.http.routers.effects.middlewares=effects-strip"
+      - "traefik.http.routers.effects.entrypoints=websecure"
+      - "traefik.http.routers.effects.priority=100"
+      - "traefik.http.routers.effects.service=effects@docker"
+      - "traefik.http.services.effects.loadbalancer.server.port=8000"
+    networks:
+      - proxy
+
+volumes:
+  effects-models:
+  effects-state:

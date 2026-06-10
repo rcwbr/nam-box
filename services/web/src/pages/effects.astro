@@ -1,0 +1,362 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="NAM Effects">
+    <div class="space-y-4">
+      <h1 class="text-2xl lcd-accent tracking-widest uppercase">Effects</h1>
+      <div class="lcd-divider my-3"></div>
+
+      <!-- Process Status Section -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Process Status</h2>
+        <div id="status-container" class="space-y-2 text-xs">
+          <p class="text-lcd-600">Loading...</p>
+        </div>
+        <select id="log-selector" class="lcd-select text-xs w-full hidden">
+          <option value="">Select process for logs...</option>
+          <option value="jackd">JACKD Logs</option>
+          <option value="mod-host">mod-host Logs</option>
+        </select>
+        <div id="logs-container" class="text-xs text-lcd-600 max-h-32 overflow-y-auto font-mono bg-black/50 p-2 rounded-sm hidden"></div>
+      </div>
+
+      <!-- Stereo Mode Section -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Audio Mode</h2>
+        <div id="stereo-container" class="flex gap-4">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="stereo" value="false" id="mono-radio" class="lcd-radio" />
+            <span class="text-xs lcd-text">MONO</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="stereo" value="true" id="stereo-radio" class="lcd-radio" />
+            <span class="text-xs lcd-text">STEREO</span>
+          </label>
+        </div>
+        <div id="stereo-status" class="text-xs text-lcd-600 h-4"></div>
+      </div>
+
+      <!-- Model Section -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">NAM Model</h2>
+        <div id="current-model" class="text-xs lcd-text">
+          <span class="text-lcd-600">Current: </span>
+          <span id="current-model-name">Loading...</span>
+        </div>
+        <select id="model-selector" class="lcd-select text-xs w-full">
+          <option value="">Select a model...</option>
+        </select>
+        <div id="model-status" class="text-xs text-lcd-600 h-4"></div>
+      </div>
+
+      <!-- Model Upload Section -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Upload Model</h2>
+        <input type="file" id="model-upload" accept=".nam" class="hidden" />
+        <label for="model-upload" class="lcd-button px-4 py-2 text-xs tracking-widest w-full text-center block cursor-pointer">
+          SELECT .NAM FILE
+        </label>
+        <div id="upload-status" class="text-xs text-lcd-600 h-4"></div>
+      </div>
+
+      <!-- Devices Section -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Audio Devices</h2>
+        <div id="devices-container" class="space-y-1 text-xs">
+          <p class="text-lcd-600">Select devices below...</p>
+        </div>
+        <select id="available-devices" class="lcd-select text-xs w-full">
+          <option value="">Available devices...</option>
+        </select>
+        <button id="add-device-btn" class="lcd-button px-4 py-2 text-xs tracking-widest w-full">ADD DEVICE</button>
+        <div id="devices-status" class="text-xs text-lcd-600 h-4"></div>
+      </div>
+
+      <!-- Controls -->
+      <div class="pt-2 space-y-2">
+        <button id="restart-btn" class="lcd-button px-4 py-2 text-xs tracking-widest w-full">RESTART SERVICES</button>
+        <div id="restart-status" class="text-xs text-lcd-600 h-4"></div>
+      </div>
+    </div>
+</Layout>
+
+<script>
+  interface ProcessInfo {
+    args: string[];
+    running: boolean;
+    pid: number | null;
+    exit_code: number | null;
+    returncode: number | null;
+  }
+
+  interface LogEntry {
+    process: string;
+    lines: string[];
+  }
+
+  interface DeviceInfo {
+    name: string;
+    card: string;
+    hw_id: string;
+  }
+
+  const statusContainer = document.getElementById('status-container') as HTMLDivElement;
+  const logSelector = document.getElementById('log-selector') as HTMLSelectElement;
+  const logsContainer = document.getElementById('logs-container') as HTMLDivElement;
+  const modelSelector = document.getElementById('model-selector') as HTMLSelectElement;
+  const currentModelName = document.getElementById('current-model-name') as HTMLSpanElement;
+  const availableDevices = document.getElementById('available-devices') as HTMLSelectElement;
+  const devicesContainer = document.getElementById('devices-container') as HTMLDivElement;
+  const modelUpload = document.getElementById('model-upload') as HTMLInputElement;
+  const uploadStatus = document.getElementById('upload-status') as HTMLDivElement;
+  const stereoStatus = document.getElementById('stereo-status') as HTMLDivElement;
+
+  // Load initial status
+  async function loadStatus() {
+    try {
+      const response = await fetch('/api/effects/status');
+      if (!response.ok) throw new Error('Failed to load status');
+      const data = await response.json();
+
+      statusContainer.innerHTML = `
+        <div class="flex justify-between items-center">
+          <span class="text-lcd-600">jackd:</span>
+          <span class="${data.jackd.running ? 'text-green-500' : 'text-red-500'}">${data.jackd.running ? 'running' : 'stopped'} ${data.jackd.pid ? '(PID: ' + data.jackd.pid + ')' : ''}</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-lcd-600">mod-host:</span>
+          <span class="${data.mod_host.running ? 'text-green-500' : 'text-red-500'}">${data.mod_host.running ? 'running' : 'stopped'} ${data.mod_host.pid ? '(PID: ' + data.mod_host.pid + ')' : ''}</span>
+        </div>
+      `;
+      logSelector.classList.remove('hidden');
+    } catch (error) {
+      statusContainer.innerHTML = `<p class="text-red-500">Error loading status</p>`;
+    }
+  }
+
+  // Load current model
+  async function loadCurrentModel() {
+    try {
+      const response = await fetch('/api/effects/model');
+      if (!response.ok) throw new Error('Failed to load model');
+      const data = await response.json();
+      currentModelName.textContent = data.model ? data.model : 'None selected';
+      modelSelector.value = data.model ? data.model : '';
+    } catch (error) {
+      currentModelName.textContent = 'Error loading';
+    }
+  }
+
+  // Load available models
+  async function loadModels() {
+    try {
+      const response = await fetch('/api/effects/model/all');
+      if (!response.ok) throw new Error('Failed to load models');
+      const models = await response.json();
+      modelSelector.innerHTML = '<option value="">Select a model...</option>';
+      models.forEach((model: string) => {
+        const option = document.createElement('option');
+        option.value = model;
+        option.textContent = model;
+        modelSelector.appendChild(option);
+      });
+    } catch (error) {
+      modelSelector.innerHTML = '<option value="">Error loading models</option>';
+    }
+  }
+
+  // Load devices
+  async function loadDevices() {
+    try {
+      const [selectedResponse, availableResponse] = await Promise.all([
+        fetch('/api/effects/devices'),
+        fetch('/api/effects/devices/all')
+      ]);
+
+      if (selectedResponse.ok) {
+        const selected = await selectedResponse.json();
+        if (selected.devices && selected.devices.length > 0) {
+          devicesContainer.innerHTML = selected.devices.map((d: string) =>
+            `<div class="text-lcd-300 font-mono">${d}</div>`
+          ).join('');
+        } else {
+          devicesContainer.innerHTML = '<p class="text-lcd-600">No devices selected</p>';
+        }
+      }
+
+      if (availableResponse.ok) {
+        const available = await availableResponse.json();
+        availableDevices.innerHTML = '<option value="">Available devices...</option>';
+        available.forEach((device: DeviceInfo) => {
+          const option = document.createElement('option');
+          option.value = device.hw_id;
+          option.textContent = `${device.name} (${device.hw_id})`;
+          availableDevices.appendChild(option);
+        });
+      }
+    } catch (error) {
+      devicesContainer.innerHTML = '<p class="text-red-500">Error loading devices</p>';
+    }
+  }
+
+  // Load stereo mode
+  async function loadStereoMode() {
+    try {
+      const response = await fetch('/api/effects/stereo');
+      if (!response.ok) throw new Error('Failed to load stereo mode');
+      const data = await response.json();
+      if (data.stereo) {
+        (document.getElementById('stereo-radio') as HTMLInputElement).checked = true;
+      } else {
+        (document.getElementById('mono-radio') as HTMLInputElement).checked = true;
+      }
+    } catch (error) {
+      console.error('Failed to load stereo mode:', error);
+    }
+  }
+
+  // Fetch logs for selected process
+  async function fetchLogs(process: string) {
+    if (!process) {
+      logsContainer.classList.add('hidden');
+      return;
+    }
+    try {
+      const response = await fetch(`/api/effects/${process}/logs?lines=50`);
+      if (!response.ok) throw new Error('Failed to load logs');
+      const data: LogEntry = await response.json();
+      logsContainer.textContent = data.lines.join('\n');
+      logsContainer.classList.remove('hidden');
+    } catch (error) {
+      logsContainer.textContent = 'Error loading logs';
+      logsContainer.classList.remove('hidden');
+    }
+  }
+
+  // Handle model selection
+  modelSelector?.addEventListener('change', async () => {
+    const selectedModel = modelSelector.value;
+    if (!selectedModel) return;
+
+    try {
+      const response = await fetch(`/api/effects/model/${selectedModel}`, { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to select model');
+      const data = await response.json();
+      currentModelName.textContent = selectedModel;
+      const modelStatus = document.getElementById('model-status') as HTMLDivElement;
+      modelStatus.textContent = data.status;
+    } catch (error) {
+      const modelStatus = document.getElementById('model-status') as HTMLDivElement;
+      modelStatus.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  });
+
+  // Handle stereo mode change
+  document.querySelectorAll('input[name="stereo"]').forEach(radio => {
+    radio.addEventListener('change', async (e) => {
+      const target = e.target as HTMLInputElement;
+      const stereo = target.value === 'true';
+
+      try {
+        const response = await fetch(`/api/effects/stereo/${stereo}`, { method: 'POST' });
+        if (!response.ok) throw new Error('Failed to set mode');
+        stereoStatus.textContent = `Switched to ${stereo ? 'STEREO' : 'MONO'} mode`;
+      } catch (error) {
+        stereoStatus.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      }
+    });
+  });
+
+  // Handle model file upload
+  modelUpload?.addEventListener('change', async () => {
+    const file = modelUpload.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.nam')) {
+      uploadStatus.textContent = 'Error: File must be a .nam file';
+      return;
+    }
+
+    uploadStatus.textContent = 'Uploading...';
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/effects/model/upload', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error('Upload failed');
+      const data = await response.json();
+      uploadStatus.textContent = `Uploaded: ${data.uploaded}`;
+      modelUpload.value = '';
+      loadModels();
+      loadCurrentModel();
+    } catch (error) {
+      uploadStatus.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+      modelUpload.value = '';
+    }
+  });
+
+  // Handle device addition
+  document.getElementById('add-device-btn')?.addEventListener('click', async () => {
+    const device = availableDevices.value;
+    if (!device) return;
+
+    try {
+      const response = await fetch(`/api/effects/devices/${device}`, { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to add device');
+      loadDevices();
+    } catch (error) {
+      document.getElementById('devices-status')!.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  });
+
+  // Handle restart
+  document.getElementById('restart-btn')?.addEventListener('click', async () => {
+    const restartStatus = document.getElementById('restart-status') as HTMLDivElement;
+    restartStatus.textContent = 'Restarting...';
+
+    try {
+      const response = await fetch('/api/effects/jackd/restart', { method: 'POST' });
+      if (!response.ok) throw new Error('Restart failed');
+      restartStatus.textContent = 'Services restarted';
+      setTimeout(loadStatus, 2000);
+    } catch (error) {
+      restartStatus.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  });
+
+  // Log selector change handler
+  logSelector?.addEventListener('change', (e) => {
+    const target = e.target as HTMLSelectElement;
+    fetchLogs(target.value);
+  });
+
+  // Initial load
+  loadStatus();
+  loadCurrentModel();
+  loadModels();
+  loadDevices();
+  loadStereoMode();
+
+  // Refresh status every 5 seconds
+  setInterval(loadStatus, 5000);
+</script>
+
+<style>
+  .lcd-select {
+    @apply bg-lcd-950 border-2 border-lcd-300 text-lcd-200 font-mono rounded-sm px-2 py-1;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.3);
+  }
+  .lcd-select:focus {
+    @apply outline-none;
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.5);
+  }
+  .lcd-radio {
+    @apply w-4 h-4 accent-lcd-400;
+  }
+</style>

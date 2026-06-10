@@ -13,7 +13,7 @@ import socket
 from pathlib import Path
 from typing import Optional, List
 
-from fastapi import FastAPI, HTTPException, UploadFile, File, Query
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -38,11 +38,6 @@ class ProcessInfo(BaseModel):
     returncode: Optional[int] = None
 
 
-class ModelSelectRequest(BaseModel):
-    model: str
-    restart_plugin: bool = False
-
-
 class LogEntry(BaseModel):
     process: str
     lines: List[str]
@@ -64,12 +59,6 @@ class AppState(BaseModel):
     stereo: bool = False  # When True, run two NAM effects (L/R); when False, run one (mono)
 
 
-class ConnectionRequest(BaseModel):
-    """Request to create a JACK connection."""
-    output_port: str
-    input_port: str
-
-
 class PortList(BaseModel):
     """List of JACK ports."""
     ports: List[str]
@@ -78,11 +67,6 @@ class PortList(BaseModel):
 class DevicesList(BaseModel):
     """List of selected audio devices."""
     devices: List[str]
-
-
-class DeviceAction(BaseModel):
-    """Request to add/remove a device."""
-    device: str
 
 
 class ArgsAction(BaseModel):
@@ -252,24 +236,37 @@ class NamAudioManager:
             return {"status": "mod-host already running"}
 
         # Start mod-host in non-forking mode with socket
-        self.mod_host_process = subprocess.Popen(
-            ["mod-host", "-n", "-p", str(MOD_HOST_SOCKET_PORT)],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
+        try:
+            self.mod_host_process = subprocess.Popen(
+                ["mod-host", "-n", "-p", str(MOD_HOST_SOCKET_PORT)],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except FileNotFoundError:
+            # mod-host binary not installed - return gracefully
+            return {"status": "mod-host binary not found (socket unavailable)"}
+
         self._start_log_reader(self.mod_host_process, self._mod_host_logs, "mod-host")
 
         # Wait for mod-host to be ready
         time.sleep(1)
 
-        # Add the NAM plugin
-        add_result = self.mod_host_add_plugin()
+        # Add the NAM plugin (handle gracefully if socket unavailable)
+        add_result = None
+        try:
+            add_result = self.mod_host_add_plugin()
+        except HTTPException:
+            add_result = {"status": "failed to add plugin (socket unavailable)"}
 
         # Load current model if available
         current_model = self.read_current_model()
         if current_model:
-            model_result = self.mod_host_set_model(current_model)
+            model_result = None
+            try:
+                model_result = self.mod_host_set_model(current_model)
+            except HTTPException:
+                model_result = {"status": "failed to set model (socket unavailable)"}
             return {"status": "mod-host started", "pid": self.mod_host_process.pid, "model": current_model, "responses": [add_result, model_result]}
         return {"status": "mod-host started", "pid": self.mod_host_process.pid, "response": add_result}
 
@@ -612,6 +609,12 @@ async def jackd_restart():
     return {"status": "jackd restarted"}
 
 
+@app.get("/jackd/logs", response_model=LogEntry)
+async def get_jackd_logs(lines: Optional[int] = None):
+    """Get logs from the JACK daemon process."""
+    return manager.get_jackd_logs(lines)
+
+
 @app.post("/mod-host/start")
 async def mod_host_start():
     """Start mod-host and load NAM plugin."""
@@ -630,6 +633,12 @@ async def mod_host_restart(model: Optional[str] = None):
     return await manager.restart_mod_host(model)
 
 
+@app.get("/mod-host/logs", response_model=LogEntry)
+async def get_mod_host_logs(lines: Optional[int] = None):
+    """Get logs from the mod-host process."""
+    return manager.get_mod_host_logs(lines)
+
+
 # ==================== Stereo Configuration Endpoint ====================
 
 @app.get("/stereo")
@@ -638,8 +647,8 @@ async def get_stereo():
     return {"stereo": manager.state.stereo, "instances": manager._get_nam_instances()}
 
 
-@app.post("/stereo")
-async def set_stereo(stereo: bool = Query(default=False)):
+@app.post("/stereo/{stereo}")
+async def set_stereo(stereo: bool = False):
     """Set stereo mode (true=2 effects, false=1 effect). Restarts services to apply."""
     manager.state.stereo = stereo
     manager.save_state()
@@ -647,13 +656,13 @@ async def set_stereo(stereo: bool = Query(default=False)):
     return result
 
 
-@app.get("/models", response_model=list[str])
+@app.get("/model/all", response_model=list[str])
 async def list_models_endpoint():
     """List all available NAM models."""
     return manager.list_models()
 
 
-@app.get("/models/current")
+@app.get("/model")
 async def get_current_model():
     """Get the currently selected model."""
     model = manager.read_current_model()
@@ -662,25 +671,7 @@ async def get_current_model():
     return {"model": None, "path": None}
 
 
-@app.post("/models/select")
-async def select_model(request: ModelSelectRequest):
-    """Select a model and optionally restart mod-host."""
-    model_path = manager.validate_model(request.model)
-    manager.write_current_model(str(model_path))
-
-    if request.restart_plugin:
-        return await manager.restart_mod_host(str(model_path))
-
-    # If mod-host is running, just set the model without restart
-    if manager.mod_host_process and manager.mod_host_process.poll() is None:
-        try:
-            manager.mod_host_set_model(str(model_path))
-        except HTTPException as e:
-            return {"status": "model selected but mod-host update failed", "model": request.model, "error": str(e)}
-    return {"status": "model selected", "model": request.model}
-
-
-@app.post("/models/upload")
+@app.post("/model/upload")
 async def upload_model(file: UploadFile = File(...)):
     """Upload a new NAM model file, select it by default, and restart mod-host."""
     if not file.filename.endswith(".nam"):
@@ -696,7 +687,22 @@ async def upload_model(file: UploadFile = File(...)):
     return {**result, "uploaded": file.filename}
 
 
-@app.delete("/models/{model_name}")
+@app.post("/model/{model_name}")
+async def select_model(model_name: str):
+    """Select a model and optionally restart mod-host."""
+    model_path = manager.validate_model(model_name)
+    manager.write_current_model(str(model_path))
+
+    # If mod-host is running, just set the model without restart
+    if manager.mod_host_process and manager.mod_host_process.poll() is None:
+        try:
+            manager.mod_host_set_model(str(model_path))
+        except HTTPException as e:
+            return {"status": "model selected but mod-host update failed", "model": model_name, "error": str(e)}
+    return {"status": "model selected", "model": model_name}
+
+
+@app.delete("/model/{model_name}")
 async def delete_model(model_name: str):
     """Delete a NAM model file."""
     model_path = manager.validate_model(model_name)
@@ -713,7 +719,7 @@ async def delete_model(model_name: str):
     return {"status": "model deleted", "model": model_name}
 
 
-@app.get("/models/{model_name}")
+@app.get("/model/{model_name}")
 async def download_model(model_name: str):
     """Download a NAM model file."""
     model_path = manager.validate_model(model_name)
@@ -724,19 +730,13 @@ async def download_model(model_name: str):
     )
 
 
-@app.get("/logs/jackd", response_model=LogEntry)
-async def get_jackd_logs(lines: Optional[int] = None):
-    """Get logs from the JACK daemon process."""
-    return manager.get_jackd_logs(lines)
-
-
-@app.get("/logs/mod-host", response_model=LogEntry)
-async def get_mod_host_logs(lines: Optional[int] = None):
-    """Get logs from the mod-host process."""
-    return manager.get_mod_host_logs(lines)
-
-
 # ==================== Connection Endpoints ====================
+
+@app.get("/ports", response_model=PortList)
+async def list_ports_endpoint():
+    """List all available JACK ports."""
+    return manager.list_ports()
+
 
 @app.get("/connections", response_model=List[JackConnection])
 async def list_connections_endpoint():
@@ -744,16 +744,16 @@ async def list_connections_endpoint():
     return manager.list_connections()
 
 
-@app.post("/connection")
-async def create_connection_endpoint(request: ConnectionRequest):
+@app.post("/connections/{output_port}/{input_port}")
+async def create_connection_endpoint(output_port: str, input_port: str):
     """Create a JACK connection."""
-    return manager.create_connection(request.output_port, request.input_port)
+    return manager.create_connection(output_port, input_port)
 
 
-@app.delete("/connection")
-async def remove_connection_endpoint(request: ConnectionRequest):
+@app.delete("/connections/{output_port}/{input_port}")
+async def remove_connection_endpoint(output_port: str, input_port: str):
     """Remove a JACK connection."""
-    return manager.remove_connection(request.output_port, request.input_port)
+    return manager.remove_connection(output_port, input_port)
 
 
 @app.get("/state", response_model=AppState)
@@ -762,36 +762,30 @@ async def get_state():
     return manager.state
 
 
-@app.get("/ports", response_model=PortList)
-async def list_ports_endpoint():
-    """List all available JACK ports."""
-    return manager.list_ports()
-
-
 # ==================== Device Endpoints ====================
 
-@app.get("/devices", response_model=List[DeviceInfo])
+@app.get("/devices/all", response_model=List[DeviceInfo])
 async def list_available_devices():
     """List available audio devices from /dev/snd/by-id with hw: identifiers."""
     return manager.list_available_devices()
 
 
-@app.get("/devices/selected", response_model=DevicesList)
+@app.get("/devices", response_model=DevicesList)
 async def get_selected_devices():
     """Get the selected devices from state."""
     return manager.get_selected_devices()
 
 
-@app.post("/devices")
-async def add_device_endpoint(request: DeviceAction):
+@app.post("/devices/{device}")
+async def add_device_endpoint(device: str):
     """Add a device to the selected list and restart services."""
-    result = manager.add_device(request.device)
+    result = manager.add_device(device)
     # Restart services to apply device change
     await manager.restart_jackd_and_mod_host()
     return result
 
 
-@app.delete("/devices")
+@app.delete("/devices/{device}")
 async def remove_device_endpoint(device: str):
     """Remove a device from the selected list and restart services."""
     result = manager.remove_device(device)
@@ -809,13 +803,13 @@ async def set_devices_endpoint(request: DevicesList):
 
 # ==================== jackd Args Endpoints ====================
 
-@app.get("/args/jackd", response_model=List[str])
+@app.get("/jackd/args", response_model=List[str])
 async def get_jackd_args():
     """Get the current jackd arguments from state."""
     return manager.state.jackd_args
 
 
-@app.post("/args/jackd")
+@app.post("/jackd/args")
 async def add_jackd_args_endpoint(request: ArgsAction):
     """Add jackd arguments to the state."""
     result = manager.add_jackd_args(request.args)
@@ -823,13 +817,13 @@ async def add_jackd_args_endpoint(request: ArgsAction):
     return result
 
 
-@app.delete("/args/jackd")
-async def remove_jackd_args_endpoint(args: List[str] = Query(default=[])):
+@app.delete("/jackd/args")
+async def remove_jackd_args_endpoint(request: ArgsAction):
     """Remove jackd arguments from the state."""
-    return manager.remove_jackd_args(args)
+    return manager.remove_jackd_args(request.args)
 
 
-@app.put("/args/jackd")
+@app.put("/jackd/args")
 async def set_jackd_args_endpoint(request: ArgsAction):
     """Set the complete list of jackd arguments and restart services."""
     result = manager.set_jackd_args(request.args)

@@ -1,0 +1,6 @@
+tls:
+  stores:
+    default:
+      defaultCertificate:
+        certFile: /etc/nam-box/ssl/server.crt
+        keyFile: /etc/nam-box/ssl/server.key

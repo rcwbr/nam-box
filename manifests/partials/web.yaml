@@ -5,6 +5,15 @@ services:
   web:
     <<: *common
     image: ghcr.io/rcwbr/nam-box/web:local
-    depends_on:
-      bluetooth-manager:
-        condition: service_started
+    labels:
+      - "traefik.enable=true"
+      # Catch-all router - lowest priority so it doesn't catch /api/effects or /api/bluetooth-manager
+      - "traefik.http.middlewares.web-strip.stripprefix.prefixes=/"
+      - "traefik.http.routers.web.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.web.middlewares=web-strip"
+      - "traefik.http.routers.web.entrypoints=websecure"
+      - "traefik.http.routers.web.priority=10"
+      - "traefik.http.routers.web.service=web@docker"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
+    networks:
+      - proxy

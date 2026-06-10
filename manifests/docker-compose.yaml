@@ -1,9 +1,13 @@
 include:
   - path: partials/proxy.yaml
     env_file: default.env
-  # - path: partials/hardware.yaml
-  #   env_file: default.env
-  - path: partials/core.yaml
+  - path: partials/hardware.yaml
     env_file: default.env
-  # - path: partials/web.yaml
-  #   env_file: default.env
+  - path: partials/effects.yaml
+    env_file: default.env
+  - path: partials/web.yaml
+    env_file: default.env
+
+networks:
+  proxy:
+    driver: bridge

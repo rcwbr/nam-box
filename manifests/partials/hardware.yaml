@@ -14,8 +14,6 @@ services:
   bluetooth-manager:
     <<: *common
     image: ghcr.io/rcwbr/nam-box/bluetooth-manager:local
-    expose:
-      - "8000"
     volumes:
       - bluetooth-dbus:/var/run/dbus
     environment:
@@ -23,6 +21,18 @@ services:
     depends_on:
       bluetooth-host:
         condition: service_started
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.middlewares.bluetooth-manager-strip.stripprefix.prefixes=/api/bluetooth-manager,/api/bluetooth-manager/"
+      - "traefik.http.routers.bluetooth-manager.rule=PathPrefix(`/api/bluetooth-manager`)"
+      - "traefik.http.routers.bluetooth-manager.middlewares=bluetooth-manager-strip"
+      - "traefik.http.routers.bluetooth-manager.entrypoints=websecure"
+      - "traefik.http.routers.bluetooth-manager.priority=100"
+      - "traefik.http.routers.bluetooth-manager.service=bluetooth-manager@docker"
+      - "traefik.http.services.bluetooth-manager.loadbalancer.server.port=8000"
+
+    networks:
+      - proxy
 
 volumes:
   bluetooth-dbus:

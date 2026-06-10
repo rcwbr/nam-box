@@ -7,3 +7,5 @@ coverage
 Dockerfile
 .dockerignore
 npm-debug.log
+*.mender
+*.mender.tmp

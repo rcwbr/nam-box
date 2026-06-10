@@ -2,19 +2,19 @@
 
 set -e
 
-# docker buildx bake --allow=fs=/var/buildx-cache jack-bazel $@
-docker buildx bake --allow=fs=/var/buildx-cache core $@
+docker buildx bake --allow=fs=/var/buildx-cache effects proxy web $@
 
 MDLH_ARGS="${MDLH_ARGS:-}$*"
 
 ./mender-docker-lifecycle-helper \
-  --no-delta \
   --platform linux/arm64 \
   --manifest-name nam-box \
   --wait-for-deploy \
   --device-type raspberrypi5 \
   --device-group nam-box-test \
-  --service-file core ./core.tar \
+  --service-file proxy ./proxy.tar \
+  --service-file web ./web.tar \
+  --service-file effects ./effects.tar \
   --log-level DEBUG \
   --cache-limit-percent 20.0 \
   ${MDLH_ARGS} \

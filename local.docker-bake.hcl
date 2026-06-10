@@ -30,20 +30,19 @@ target "bluetooth-manager" {
   ]
 }
 
-target "core" {
+target "effects" {
   inherits   = ["common"]
-  context    = "services/mod-host"
+  context    = "services/effects"
   contexts = {
     github-mod-host = "https://github.com/rcwbr/mod-host.git#2025-12-10"
   }
-  # context    = "services/core" TODO
   dockerfile = "Dockerfile"
-  tags       = ["ghcr.io/rcwbr/nam-box/core:local"]
+  tags       = ["ghcr.io/rcwbr/nam-box/effects:local"]
   cache-from = [
-    "type=local,src=/var/buildx-cache/core"
+    "type=local,src=/var/buildx-cache/effects"
   ]
   cache-to = [
-    "type=local,dest=/var/buildx-cache/core,mode=max"
+    "type=local,dest=/var/buildx-cache/effects,mode=max"
   ]
 }
 
@@ -60,54 +59,6 @@ target "proxy" {
   ]
 }
 
-target "jack" {
-  inherits = ["common"]
-  context  = "services/jack"
-  tags     = ["ghcr.io/rcwbr/nam-box/jack:local"]
-  cache-from = [
-    "type=local,src=/var/buildx-cache/jack"
-  ]
-  cache-to = [
-    "type=local,dest=/var/buildx-cache/jack,mode=max"
-  ]
-}
-
-target "jack-bazel" {
-  inherits = ["common"]
-  context  = "services/jack-bazel"
-  tags     = ["ghcr.io/rcwbr/nam-box/jack-bazel:local"]
-  cache-from = [
-    "type=local,src=/var/buildx-cache/jack-bazel"
-  ]
-  cache-to = [
-    "type=local,dest=/var/buildx-cache/jack-bazel,mode=max"
-  ]
-}
-
-target "jacktrip" {
-  inherits = ["common"]
-  context  = "jacktrip"
-  tags     = ["ghcr.io/rcwbr/nam-box/jacktrip:local"]
-  cache-from = [
-    "type=local,src=/var/buildx-cache/jacktrip"
-  ]
-  cache-to = [
-    "type=local,dest=/var/buildx-cache/jacktrip,mode=max"
-  ]
-}
-
-target "jalv" {
-  inherits = ["common"]
-  context  = "services/jalv"
-  tags     = ["ghcr.io/rcwbr/nam-box/jalv:local"]
-  cache-from = [
-    "type=local,src=/var/buildx-cache/jalv"
-  ]
-  cache-to = [
-    "type=local,dest=/var/buildx-cache/jalv,mode=max"
-  ]
-}
-
 target "mod-host" {
   inherits   = ["common"]
   context    = "services/mod-host"
@@ -121,62 +72,6 @@ target "mod-host" {
   ]
   cache-to = [
     "type=local,dest=/var/buildx-cache/mod-host,mode=max"
-  ]
-}
-
-target "mod-ui" {
-  inherits   = ["common"]
-  context    = "services/mod-ui"
-  dockerfile = "Dockerfile"
-  contexts = {
-    github-mod-ui = "https://github.com/rcwbr/mod-ui.git#2025-12-10"
-  }
-  tags = ["ghcr.io/rcwbr/nam-box/mod-ui:local"]
-  cache-from = [
-    "type=local,src=/var/buildx-cache/mod-ui"
-  ]
-  cache-to = [
-    "type=local,dest=/var/buildx-cache/mod-ui,mode=max"
-  ]
-}
-
-target "nam" {
-  inherits   = ["common"]
-  context    = "services/nam"
-  dockerfile = "Dockerfile"
-  tags       = ["ghcr.io/rcwbr/nam-box/nam:local"]
-  cache-from = [
-    "type=local,src=/var/buildx-cache/nam"
-  ]
-  cache-to = [
-    "type=local,dest=/var/buildx-cache/nam,mode=max"
-  ]
-}
-
-target "nam-jalv" {
-  inherits   = ["common"]
-  context    = "services/nam-jalv"
-  dockerfile = "Dockerfile"
-  tags       = ["ghcr.io/rcwbr/nam-box/nam-jalv:local"]
-  cache-from = [
-    "type=local,src=/var/buildx-cache/nam-jalv"
-  ]
-  cache-to = [
-    "type=local,dest=/var/buildx-cache/nam-jalv,mode=max"
-  ]
-}
-
-
-target "webpages" {
-  inherits   = ["common"]
-  context    = "services/webpages"
-  dockerfile = "Dockerfile"
-  tags       = ["ghcr.io/rcwbr/nam-box/webpages:local"]
-  cache-from = [
-    "type=local,src=/var/buildx-cache/webpages"
-  ]
-  cache-to = [
-    "type=local,dest=/var/buildx-cache/webpages,mode=max"
   ]
 }
 

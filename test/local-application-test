@@ -5,6 +5,6 @@ set -e
 if [ "$1" = "down" ]; then
   docker compose --file ./manifests/test-dev/docker-compose.yaml down
 else
-  # docker buildx bake --allow=fs=/var/buildx-cache -f local.docker-bake.hcl web proxy
+  docker buildx bake --allow=fs=/var/buildx-cache -f local.docker-bake.hcl effects proxy web
   docker compose --file ./manifests/test-dev/docker-compose.yaml up -d --wait --remove-orphans
 fi
