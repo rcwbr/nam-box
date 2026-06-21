@@ -4,3 +4,4 @@ test/.cloudflared/*
 !test/.cloudflared/.gitkeep
 !test/.cloudflared/template.config.yml
 __pycache__
+node_modules

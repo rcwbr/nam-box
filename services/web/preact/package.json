@@ -1,0 +1,23 @@
+{
+  "dependencies": {
+    "@astrojs/preact": "^5.1.5",
+    "@headlessui/react": "^2.2.10",
+    "@tailwindcss/vite": "^4.3.1",
+    "astro": "^6.4.6",
+    "preact": "^10.29.2",
+    "tailwindcss": "^4.3.1"
+  },
+  "name": "nam-box-web",
+  "overrides": {
+    "react": "npm:@preact/compat",
+    "react-dom": "npm:@preact/compat"
+  },
+  "private": true,
+  "scripts": {
+    "build": "astro build",
+    "dev": "astro dev --host 0.0.0.0 --port 8000",
+    "preview": "astro preview"
+  },
+  "type": "module",
+  "version": "1.0.0"
+}

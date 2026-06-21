@@ -24,7 +24,7 @@ target "bluetooth-host" {
   ]
   output = concat([
     "type=oci,dest=bluetooth-host.tar",
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,name=ghcr.io/rcwbr/nam-box/bluetooth-host:${VERSION}"
   ] : [])
   cache-from = [
@@ -33,7 +33,7 @@ target "bluetooth-host" {
   ]
   cache-to = concat([
     "type=local,rewrite-timestamp=true,mode=max,dest=/var/buildx-cache/arm/bluetooth-host"
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,rewrite-timestamp=true,mode=max,ref=ghcr.io/rcwbr/nam-box/bluetooth-host-cache:${VERSION}"
   ] : [])
 }
@@ -47,7 +47,7 @@ target "bluetooth-manager" {
   ]
   output = concat([
     "type=oci,dest=bluetooth-manager.tar",
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,name=ghcr.io/rcwbr/nam-box/bluetooth-manager:${VERSION}"
   ] : [])
   cache-from = [
@@ -56,16 +56,17 @@ target "bluetooth-manager" {
   ]
   cache-to = concat([
     "type=local,rewrite-timestamp=true,mode=max,dest=/var/buildx-cache/arm/bluetooth-manager"
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,rewrite-timestamp=true,mode=max,ref=ghcr.io/rcwbr/nam-box/bluetooth-manager-cache:${VERSION}"
   ] : [])
 }
 
 target "effects" {
-  inherits   = ["common"]
-  context    = "services/effects"
+  inherits = ["common"]
+  context  = "services/effects"
   contexts = {
     github-mod-host = "https://github.com/rcwbr/mod-host.git#2025-12-10"
+    github-mod-ui   = "https://github.com/rcwbr/mod-ui.git#2025-12-10"
   }
   dockerfile = "Dockerfile"
   annotations = [
@@ -73,7 +74,7 @@ target "effects" {
   ]
   output = concat([
     "type=oci,dest=effects.tar",
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,name=ghcr.io/rcwbr/nam-box/effects:${VERSION}"
   ] : [])
   cache-from = [
@@ -82,8 +83,31 @@ target "effects" {
   ]
   cache-to = concat([
     "type=local,rewrite-timestamp=true,mode=max,dest=/var/buildx-cache/arm/effects"
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,rewrite-timestamp=true,mode=max,ref=ghcr.io/rcwbr/nam-box/effects-cache:${VERSION}"
+  ] : [])
+}
+
+target "files" {
+  inherits   = ["common"]
+  context    = "services/files"
+  dockerfile = "Dockerfile"
+  annotations = [
+    "index-descriptor:io.containerd.image.name=ghcr.io/rcwbr/nam-box/files:local"
+  ]
+  output = concat([
+    "type=oci,dest=files.tar"
+    ], "${REGISTRY_PUSH}" == "true" ? [
+    "type=registry,name=ghcr.io/rcwbr/nam-box/files:${VERSION}"
+  ] : [])
+  cache-from = [
+    "type=registry,ref=ghcr.io/rcwbr/nam-box/files-cache:${VERSION}",
+    "type=local,src=/var/buildx-cache/arm/files"
+  ]
+  cache-to = concat([
+    "type=local,rewrite-timestamp=true,mode=max,dest=/var/buildx-cache/arm/files"
+    ], "${REGISTRY_PUSH}" == "true" ? [
+    "type=registry,rewrite-timestamp=true,mode=max,ref=ghcr.io/rcwbr/nam-box/files-cache:${VERSION}"
   ] : [])
 }
 
@@ -96,7 +120,7 @@ target "proxy" {
   ]
   output = concat([
     "type=oci,dest=proxy.tar"
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,name=ghcr.io/rcwbr/nam-box/proxy:${VERSION}"
   ] : [])
   cache-from = [
@@ -105,7 +129,7 @@ target "proxy" {
   ]
   cache-to = concat([
     "type=local,rewrite-timestamp=true,mode=max,dest=/var/buildx-cache/arm/proxy"
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,rewrite-timestamp=true,mode=max,ref=ghcr.io/rcwbr/nam-box/proxy-cache:${VERSION}"
   ] : [])
 }
@@ -119,7 +143,7 @@ target "web" {
   ]
   output = concat([
     "type=oci,dest=web.tar"
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,name=ghcr.io/rcwbr/nam-box/web:${VERSION}"
   ] : [])
   cache-from = [
@@ -128,7 +152,7 @@ target "web" {
   ]
   cache-to = concat([
     "type=local,rewrite-timestamp=true,mode=max,dest=/var/buildx-cache/arm/web"
-  ], "${REGISTRY_PUSH}" == "true" ? [
+    ], "${REGISTRY_PUSH}" == "true" ? [
     "type=registry,rewrite-timestamp=true,mode=max,ref=ghcr.io/rcwbr/nam-box/web-cache:${VERSION}"
   ] : [])
 }

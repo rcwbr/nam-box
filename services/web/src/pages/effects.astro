@@ -2,42 +2,59 @@
 import Layout from '../layouts/Layout.astro';
 ---
 
-<Layout title="NAM Effects">
+<Layout title="NAM Effects & Pedalboards">
     <div class="space-y-4">
-      <h1 class="text-2xl lcd-accent tracking-widest uppercase">Effects</h1>
+      <h1 class="text-2xl lcd-accent tracking-widest uppercase">Effects & Pedalboards</h1>
       <div class="lcd-divider my-3"></div>
 
-      <!-- Process Status Section -->
+      <!-- Pedalboard Management Section -->
       <div class="space-y-2">
-        <h2 class="text-xs lcd-text uppercase tracking-widest">Process Status</h2>
-        <div id="status-container" class="space-y-2 text-xs">
-          <p class="text-lcd-600">Loading...</p>
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Pedalboards</h2>
+        <div id="pedalboard-container" class="space-y-2 text-xs">
+          <p class="text-lcd-600">Loading pedalboards...</p>
         </div>
-        <select id="log-selector" class="lcd-select text-xs w-full hidden">
-          <option value="">Select process for logs...</option>
-          <option value="jackd">JACKD Logs</option>
-          <option value="mod-host">mod-host Logs</option>
+        <select id="pedalboard-selector" class="lcd-select text-xs w-full">
+          <option value="">Select a pedalboard...</option>
         </select>
-        <div id="logs-container" class="text-xs text-lcd-600 max-h-32 overflow-y-auto font-mono bg-black/50 p-2 rounded-sm hidden"></div>
-      </div>
-
-      <!-- Stereo Mode Section -->
-      <div class="space-y-2">
-        <h2 class="text-xs lcd-text uppercase tracking-widest">Audio Mode</h2>
-        <div id="stereo-container" class="flex gap-4">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="stereo" value="false" id="mono-radio" class="lcd-radio" />
-            <span class="text-xs lcd-text">MONO</span>
-          </label>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="radio" name="stereo" value="true" id="stereo-radio" class="lcd-radio" />
-            <span class="text-xs lcd-text">STEREO</span>
-          </label>
+        <div class="flex gap-2">
+          <button id="load-pedalboard-btn" class="lcd-button px-2 py-1 text-xs tracking-widest flex-1">LOAD</button>
+          <button id="save-pedalboard-btn" class="lcd-button px-2 py-1 text-xs tracking-widest flex-1">SAVE</button>
+          <button id="create-pedalboard-btn" class="lcd-button px-2 py-1 text-xs tracking-widest flex-1">NEW</button>
         </div>
-        <div id="stereo-status" class="text-xs text-lcd-600 h-4"></div>
+        <div id="pedalboard-status" class="text-xs text-lcd-600 h-4"></div>
       </div>
 
-      <!-- Model Section -->
+      <!-- Create Pedalboard Modal -->
+      <div id="create-pedalboard-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center hidden z-50">
+        <div class="lcd-panel p-4 w-80">
+          <h3 class="text-xs lcd-text uppercase tracking-widest mb-2">Create Pedalboard</h3>
+          <input type="text" id="new-pedalboard-name" placeholder="Pedalboard name..." class="lcd-input text-xs w-full mb-3" />
+          <div class="flex gap-2">
+            <button id="confirm-create-pedalboard" class="lcd-button px-3 py-1 text-xs tracking-widest flex-1">CREATE</button>
+            <button id="cancel-create-pedalboard" class="lcd-button px-3 py-1 text-xs tracking-widest flex-1">CANCEL</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Effects/Pedal Management Section -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Available Effects</h2>
+        <div id="effects-container" class="space-y-1 max-h-40 overflow-y-auto">
+          <p class="text-lcd-600 text-xs">Loading effects...</p>
+        </div>
+        <button id="add-effect-btn" class="lcd-button px-4 py-2 text-xs tracking-widest w-full" disabled>ADD SELECTED EFFECT</button>
+        <div id="effects-status" class="text-xs text-lcd-600 h-4"></div>
+      </div>
+
+      <!-- Current Pedalboard Effects -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Current Pedalboard Effects</h2>
+        <div id="current-effects-container" class="space-y-1 text-xs max-h-32 overflow-y-auto">
+          <p class="text-lcd-600">No effects loaded</p>
+        </div>
+      </div>
+
+      <!-- Model Section (model list/upload via file_api; model set via mod-ui parameter API) -->
       <div class="space-y-2">
         <h2 class="text-xs lcd-text uppercase tracking-widest">NAM Model</h2>
         <div id="current-model" class="text-xs lcd-text">
@@ -59,106 +76,389 @@ import Layout from '../layouts/Layout.astro';
         </label>
         <div id="upload-status" class="text-xs text-lcd-600 h-4"></div>
       </div>
-
-      <!-- Devices Section -->
-      <div class="space-y-2">
-        <h2 class="text-xs lcd-text uppercase tracking-widest">Audio Devices</h2>
-        <div id="devices-container" class="space-y-1 text-xs">
-          <p class="text-lcd-600">Select devices below...</p>
-        </div>
-        <select id="available-devices" class="lcd-select text-xs w-full">
-          <option value="">Available devices...</option>
-        </select>
-        <button id="add-device-btn" class="lcd-button px-4 py-2 text-xs tracking-widest w-full">ADD DEVICE</button>
-        <div id="devices-status" class="text-xs text-lcd-600 h-4"></div>
-      </div>
-
-      <!-- Controls -->
-      <div class="pt-2 space-y-2">
-        <button id="restart-btn" class="lcd-button px-4 py-2 text-xs tracking-widest w-full">RESTART SERVICES</button>
-        <div id="restart-status" class="text-xs text-lcd-600 h-4"></div>
-      </div>
     </div>
 </Layout>
 
 <script>
-  interface ProcessInfo {
-    args: string[];
-    running: boolean;
-    pid: number | null;
-    exit_code: number | null;
-    returncode: number | null;
+  // Type definitions
+  interface Pedalboard {
+    bundle: string;
+    title: string;
+    broken?: boolean;
+    factory?: boolean;
+    created_at?: number;
+    updated_at?: number;
   }
 
-  interface LogEntry {
-    process: string;
-    lines: string[];
-  }
-
-  interface DeviceInfo {
+  interface Effect {
+    uri: string;
     name: string;
-    card: string;
-    hw_id: string;
+    brand?: string;
+    category?: string;
   }
 
-  const statusContainer = document.getElementById('status-container') as HTMLDivElement;
-  const logSelector = document.getElementById('log-selector') as HTMLSelectElement;
-  const logsContainer = document.getElementById('logs-container') as HTMLDivElement;
+  interface PedalboardEffect {
+    instance: string;
+    uri: string;
+    name?: string;
+    x?: number;
+    y?: number;
+  }
+
+  // DOM Elements
+  const pedalboardSelector = document.getElementById('pedalboard-selector') as HTMLSelectElement;
+  const loadPedalboardBtn = document.getElementById('load-pedalboard-btn') as HTMLButtonElement;
+  const savePedalboardBtn = document.getElementById('save-pedalboard-btn') as HTMLButtonElement;
+  const createPedalboardBtn = document.getElementById('create-pedalboard-btn') as HTMLButtonElement;
+  const createPedalboardModal = document.getElementById('create-pedalboard-modal') as HTMLDivElement;
+  const newPedalboardName = document.getElementById('new-pedalboard-name') as HTMLInputElement;
+  const confirmCreatePedalboard = document.getElementById('confirm-create-pedalboard') as HTMLButtonElement;
+  const cancelCreatePedalboard = document.getElementById('cancel-create-pedalboard') as HTMLButtonElement;
+  const effectsContainer = document.getElementById('effects-container') as HTMLDivElement;
+  const addEffectBtn = document.getElementById('add-effect-btn') as HTMLButtonElement;
+  const currentEffectsContainer = document.getElementById('current-effects-container') as HTMLDivElement;
   const modelSelector = document.getElementById('model-selector') as HTMLSelectElement;
   const currentModelName = document.getElementById('current-model-name') as HTMLSpanElement;
-  const availableDevices = document.getElementById('available-devices') as HTMLSelectElement;
-  const devicesContainer = document.getElementById('devices-container') as HTMLDivElement;
   const modelUpload = document.getElementById('model-upload') as HTMLInputElement;
   const uploadStatus = document.getElementById('upload-status') as HTMLDivElement;
-  const stereoStatus = document.getElementById('stereo-status') as HTMLDivElement;
 
-  // Load initial status
-  async function loadStatus() {
+  // State
+  let selectedEffectUri: string = '';
+  let pedalboards: Pedalboard[] = [];
+  let currentPedalboardPath: string | null = null;
+
+  // Load pedalboards
+  async function loadPedalboards() {
     try {
-      const response = await fetch('/api/effects/status');
-      if (!response.ok) throw new Error('Failed to load status');
+      const response = await fetch('/api/effects/pedalboard/list');
+      if (!response.ok) throw new Error('Failed to load pedalboards');
       const data = await response.json();
-
-      statusContainer.innerHTML = `
-        <div class="flex justify-between items-center">
-          <span class="text-lcd-600">jackd:</span>
-          <span class="${data.jackd.running ? 'text-green-500' : 'text-red-500'}">${data.jackd.running ? 'running' : 'stopped'} ${data.jackd.pid ? '(PID: ' + data.jackd.pid + ')' : ''}</span>
-        </div>
-        <div class="flex justify-between items-center">
-          <span class="text-lcd-600">mod-host:</span>
-          <span class="${data.mod_host.running ? 'text-green-500' : 'text-red-500'}">${data.mod_host.running ? 'running' : 'stopped'} ${data.mod_host.pid ? '(PID: ' + data.mod_host.pid + ')' : ''}</span>
-        </div>
-      `;
-      logSelector.classList.remove('hidden');
+      // mod-ui returns an array of pedalboard objects directly
+      // Filter out broken pedalboards to avoid errors
+      pedalboards = (data || []).filter((pb: Pedalboard) => !pb.broken);
+      pedalboardSelector.innerHTML = '<option value="">Select a pedalboard...</option>';
+      pedalboards.forEach((pb: Pedalboard) => {
+        const option = document.createElement('option');
+        option.value = pb.bundle;
+        option.textContent = pb.title;
+        pedalboardSelector.appendChild(option);
+      });
+      // Reset status
+      const statusEl = document.getElementById('pedalboard-status') as HTMLDivElement;
+      statusEl.textContent = '';
     } catch (error) {
-      statusContainer.innerHTML = `<p class="text-red-500">Error loading status</p>`;
+      const statusEl = document.getElementById('pedalboard-status') as HTMLDivElement;
+      statusEl.textContent = `Error loading pedalboards`;
     }
   }
 
-  // Load current model
+  // Load current pedalboard
+  async function loadCurrentPedalboard() {
+    // First ensure we have pedalboards loaded
+    if (pedalboards.length === 0) {
+      currentEffectsContainer.innerHTML = '<p class="text-lcd-600">No pedalboard loaded</p>';
+      return;
+    }
+
+    // Get the first pedalboard if no current one is set
+    let path = currentPedalboardPath;
+    if (!path) {
+      // Try to find Default pedalboard, fall back to first pedalboard
+      const defaultPedalboard = pedalboards.find(pb => pb.title === 'Default');
+      const pedalboard = defaultPedalboard || pedalboards[0];
+      if (!pedalboard) {
+        currentEffectsContainer.innerHTML = '<p class="text-lcd-600">No pedalboard loaded</p>';
+        return;
+      }
+      path = pedalboard.bundle;
+      currentPedalboardPath = path;
+    }
+
+    try {
+      const response = await fetch(`/api/effects/pedalboard/info/?bundlepath=${encodeURIComponent(path!)}`);
+      if (!response.ok) {
+        currentEffectsContainer.innerHTML = '<p class="text-lcd-600">No pedalboard loaded</p>';
+        return;
+      }
+      const data = await response.json();
+      // mod-ui pedalboard info includes the effects/plugins in the current pedalboard
+      renderCurrentEffects(data.plugins || []);
+    } catch (error) {
+      currentEffectsContainer.innerHTML = '<p class="text-lcd-600">No effects loaded</p>';
+    }
+  }
+
+  // Render current pedalboard effects
+  function renderCurrentEffects(effects: PedalboardEffect[]) {
+    if (!effects || effects.length === 0) {
+      currentEffectsContainer.innerHTML = '<p class="text-lcd-600">No effects in current pedalboard</p>';
+      return;
+    }
+    currentEffectsContainer.innerHTML = effects.map((effect: PedalboardEffect) =>
+      '<div class="lcd-effect-config-item p-2 border border-lcd-600 rounded-sm cursor-pointer" data-instance="' + effect.instance + '" data-uri="' + effect.uri + '">' +
+        '<div class="flex justify-between items-center mb-2">' +
+          '<span class="font-mono text-lcd-300 text-xs">' + (effect.name || effect.instance) + '</span>' +
+          '<button class="lcd-configure-btn px-1 text-xs" data-instance="' + effect.instance + '">[⚙]</button>' +
+        '</div>' +
+        '<div class="hidden parameter-controls" data-instance="' + effect.instance + '"></div>' +
+      '</div>'
+    ).join('');
+
+    // Add click handlers for configure buttons
+    document.querySelectorAll('.lcd-configure-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const instance = btn.getAttribute('data-instance');
+        const controls = document.querySelector(`.parameter-controls[data-instance="${instance}"]`) as HTMLDivElement;
+        const item = btn.closest('.lcd-effect-config-item') as HTMLDivElement;
+
+        if (controls.classList.contains('hidden')) {
+          // Show parameter controls
+          controls.classList.remove('hidden');
+          loadEffectParameters(instance);
+        } else {
+          // Hide parameter controls
+          controls.classList.add('hidden');
+        }
+      });
+    });
+
+    // Add click handlers for effect selection (to show parameters)
+    document.querySelectorAll('.lcd-effect-config-item').forEach(item => {
+      item.addEventListener('click', () => {
+        const instance = item.getAttribute('data-instance');
+        const controls = document.querySelector(`.parameter-controls[data-instance="${instance}"]`) as HTMLDivElement;
+
+        if (controls.classList.contains('hidden')) {
+          controls.classList.remove('hidden');
+          loadEffectParameters(instance);
+        }
+      });
+    });
+  }
+
+  // Load effect parameters for configuration
+  async function loadEffectParameters(instance: string) {
+    const controls = document.querySelector(`.parameter-controls[data-instance="${instance}"]`) as HTMLDivElement;
+    if (!controls) return;
+
+    controls.innerHTML = '<p class="text-lcd-500 text-xs">Loading parameters...</p>';
+
+    try {
+      // Get effect info which includes parameters
+      const uriElement = document.querySelector(`.lcd-effect-config-item[data-instance="${instance}"]`) as HTMLDivElement;
+      const uri = uriElement?.getAttribute('data-uri');
+
+      if (!uri) {
+        controls.innerHTML = '<p class="text-lcd-500 text-xs">URI not found</p>';
+        return;
+      }
+
+      const response = await fetch(`/api/effects/effect/get?uri=${encodeURIComponent(uri)}`);
+      if (!response.ok) {
+        controls.innerHTML = '<p class="text-lcd-500 text-xs">Effect not available</p>';
+        return;
+      }
+
+      const effectData = await response.json();
+
+      // Collect parameters from both parameters array and ports.control.input
+      // mod-ui returns parameters in different structures depending on plugin type
+      let parameters: any[] = [];
+
+      // For NAM models, parameters array contains model path parameter
+      if (effectData.parameters && effectData.parameters.length > 0) {
+        parameters = effectData.parameters.map((p: any) => ({
+          key: p.uri?.split('#').pop() || p.label?.toLowerCase().replace(/\s+/g, '_'),
+          name: p.label || p.name || p.uri?.split('#').pop(),
+          min: p.ranges?.minimum ?? 0,
+          max: p.ranges?.maximum ?? 1,
+          step: 0.01,
+          value: 0,
+          default: 0
+        }));
+      }
+
+      // For control parameters, use ports.control.input (has actual min/max/step values)
+      const controlParams = effectData.ports?.control?.input || [];
+      if (controlParams.length > 0) {
+        controlParams.forEach((p: any) => {
+          parameters.push({
+            key: p.symbol,
+            name: p.name,
+            min: p.ranges?.minimum ?? 0,
+            max: p.ranges?.maximum ?? 1,
+            step: 0.01,
+            value: p.value ?? p.ranges?.default ?? 0.5,
+            default: p.ranges?.default ?? 0.5
+          });
+        });
+      }
+
+      // Render parameter controls if available
+      if (parameters.length > 0) {
+        controls.innerHTML = parameters.map((param: any) =>
+          '<div class="space-y-1 mb-2">' +
+            '<label class="text-xs lcd-text block">' + param.name + '</label>' +
+            '<div class="flex gap-1 items-center">' +
+              '<input type="range" min="' + param.min + '" max="' + param.max + '" step="any"' +
+                '" value="' + param.value + '" data-key="' + param.key + '" class="lcd-slider flex-1" />' +
+              '<span class="lcd-param-value text-xs w-12 text-right">' + param.value + '</span>' +
+            '</div>' +
+          '</div>'
+        ).join('');
+
+        // Add input handlers for parameter sliders
+        controls.querySelectorAll('.lcd-slider').forEach(slider => {
+          slider.addEventListener('input', (e) => {
+            const target = e.target as HTMLInputElement;
+            const valueDisplay = target.nextElementSibling as HTMLSpanElement;
+            if (valueDisplay) valueDisplay.textContent = parseFloat(target.value).toFixed(2);
+          });
+
+          slider.addEventListener('change', async (e) => {
+            const target = e.target as HTMLInputElement;
+            const key = target.getAttribute('data-key');
+            const value = parseFloat(target.value);
+            if (key) {
+              await setEffectParameter(instance, key, value);
+            }
+          });
+        });
+      } else {
+        controls.innerHTML = '<p class="text-lcd-500 text-xs">No configurable parameters</p>';
+      }
+    } catch (error) {
+      controls.innerHTML = '<p class="text-red-500 text-xs">Error loading parameters</p>';
+    }
+  }
+
+  // Set effect parameter via API
+  async function setEffectParameter(instance: string, key: string, value: number) {
+    try {
+      // Get the URI from the effect item being configured
+      const uriElement = document.querySelector(`.lcd-effect-config-item[data-instance="${instance}"]`) as HTMLDivElement;
+      const uri = uriElement?.getAttribute('data-uri');
+
+      if (!uri) {
+        console.error('URI not found for instance:', instance);
+        return;
+      }
+
+      // mod-ui parameter set format: plugin_uri/instance/port_symbol/value
+      // instance from pedalboard info may be "nam1" or "/nam1" (with leading slash)
+      // For the parameter set API, we need /graph/{instance} format
+      let instancePath: string;
+      if (instance.startsWith('/graph/')) {
+        instancePath = instance;
+      } else if (instance.startsWith('/')) {
+        // instance is already /nam1 format, convert to /graph/nam1
+        instancePath = `/graph${instance}`;
+      } else {
+        // instance is just nam1, convert to /graph/nam1
+        instancePath = `/graph/${instance}`;
+      }
+      const response = await fetch('/api/effects/effect/parameter/set/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: `${uri}${instancePath}/${key}/${value}`
+      });
+      if (!response.ok) throw new Error('Failed to set parameter');
+    } catch (error) {
+      console.error('Failed to set parameter:', error);
+    }
+  }
+
+  // Load available effects
+  async function loadEffects() {
+    try {
+      const response = await fetch('/api/effects/effect/list');
+      if (!response.ok) throw new Error('Failed to load effects');
+      const data = await response.json();
+      renderEffects(data);
+    } catch (error) {
+      effectsContainer.innerHTML = '<p class="text-red-500 text-xs">Error loading effects</p>';
+    }
+  }
+
+  // Render effects list
+  function renderEffects(effects: Effect[]) {
+    if (!effects || effects.length === 0) {
+      effectsContainer.innerHTML = '<p class="text-lcd-600 text-xs">No effects available</p>';
+      return;
+    }
+    effectsContainer.innerHTML = effects.map((effect: Effect) =>
+      '<div class="lcd-effect-item px-2 py-1 text-xs font-mono cursor-pointer border border-lcd-600 rounded-sm" data-uri="' + effect.uri + '">' +
+        '<span class="led-dot mr-1"></span>' +
+        '<span class="text-lcd-300">' + effect.name + '</span>' +
+        '<span class="text-lcd-500 ml-2">(' + (effect.brand || 'Unknown') + ')</span>' +
+      '</div>'
+    ).join('');
+
+    // Add click handlers for effect selection
+    document.querySelectorAll('.lcd-effect-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.lcd-effect-item').forEach(i => i.classList.remove('selected'));
+        item.classList.add('selected');
+        selectedEffectUri = item.getAttribute('data-uri') || '';
+        addEffectBtn.disabled = !selectedEffectUri;
+      });
+    });
+  }
+
+  // NAM Model functions (uses mod-ui parameter API and file_api)
+  // loadCurrentModel: reads selected model from pedalboard state (limited support)
+  // loadModels: uses file_api to list .nam files
+  // Note: pedalboard.info doesn't return the current model value, so we can't show it directly
   async function loadCurrentModel() {
     try {
-      const response = await fetch('/api/effects/model');
-      if (!response.ok) throw new Error('Failed to load model');
+      // First, ensure we have a pedalboard path
+      let pedPath = currentPedalboardPath;
+      if (!pedPath && pedalboards.length > 0) {
+        // Use first pedalboard if no current one is set
+        pedPath = pedalboards[0].bundle;
+      }
+
+      if (!pedPath) {
+        currentModelName.textContent = 'None selected';
+        return;
+      }
+
+      // Check if NAM plugin exists in pedalboard
+      const response = await fetch(`/api/effects/pedalboard/info/?bundlepath=${encodeURIComponent(pedPath)}`);
+      if (!response.ok) throw new Error('Failed to load pedalboard');
       const data = await response.json();
-      currentModelName.textContent = data.model ? data.model : 'None selected';
-      modelSelector.value = data.model ? data.model : '';
+
+      const namPlugin = (data.plugins || []).find((p: any) =>
+        p.uri && p.uri.includes('neural-amp-modeler-lv2')
+      );
+      // Note: The current NAM model value is not returned by pedalboard.info
+      // It only shows the plugin ports (input_level, output_level, quality_scale)
+      // Without the model file path, we can only show "None selected" or skip this check
+      if (namPlugin) {
+        // Model is set but we can't read the current value from pedalboard info
+        // The model parameter is stored but not returned in the API response
+        currentModelName.textContent = 'Configure via selector';
+      } else {
+        currentModelName.textContent = 'None selected';
+      }
     } catch (error) {
       currentModelName.textContent = 'Error loading';
     }
   }
 
-  // Load available models
   async function loadModels() {
     try {
-      const response = await fetch('/api/effects/model/all');
+      // file_api service lists files from /opt/nam/models
+      const response = await fetch('/api/model/all');
       if (!response.ok) throw new Error('Failed to load models');
-      const models = await response.json();
+      const files = await response.json();
+      // file_api returns FileInfo objects with {name, size, path}
       modelSelector.innerHTML = '<option value="">Select a model...</option>';
-      models.forEach((model: string) => {
+      files.forEach((file: {name: string}) => {
         const option = document.createElement('option');
-        option.value = model;
-        option.textContent = model;
+        option.value = file.name;
+        option.textContent = file.name;
         modelSelector.appendChild(option);
       });
     } catch (error) {
@@ -166,109 +466,128 @@ import Layout from '../layouts/Layout.astro';
     }
   }
 
-  // Load devices
-  async function loadDevices() {
+  // Pedalboard event handlers
+  loadPedalboardBtn?.addEventListener('click', async () => {
+    const bundlepath = pedalboardSelector.value;
+    if (!bundlepath) return;
+
+    const statusEl = document.getElementById('pedalboard-status') as HTMLDivElement;
+    statusEl.textContent = 'Loading...';
+
     try {
-      const [selectedResponse, availableResponse] = await Promise.all([
-        fetch('/api/effects/devices'),
-        fetch('/api/effects/devices/all')
-      ]);
-
-      if (selectedResponse.ok) {
-        const selected = await selectedResponse.json();
-        if (selected.devices && selected.devices.length > 0) {
-          devicesContainer.innerHTML = selected.devices.map((d: string) =>
-            `<div class="text-lcd-300 font-mono">${d}</div>`
-          ).join('');
-        } else {
-          devicesContainer.innerHTML = '<p class="text-lcd-600">No devices selected</p>';
-        }
-      }
-
-      if (availableResponse.ok) {
-        const available = await availableResponse.json();
-        availableDevices.innerHTML = '<option value="">Available devices...</option>';
-        available.forEach((device: DeviceInfo) => {
-          const option = document.createElement('option');
-          option.value = device.hw_id;
-          option.textContent = `${device.name} (${device.hw_id})`;
-          availableDevices.appendChild(option);
-        });
-      }
+      const response = await fetch(`/api/effects/pedalboard/load_bundle/?bundlepath=${encodeURIComponent(bundlepath)}`, { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to load pedalboard');
+      statusEl.textContent = 'Pedalboard loaded';
+      currentPedalboardPath = bundlepath;
+      loadCurrentPedalboard();
     } catch (error) {
-      devicesContainer.innerHTML = '<p class="text-red-500">Error loading devices</p>';
+      statusEl.textContent = `Error loading pedalboard`;
     }
-  }
+  });
 
-  // Load stereo mode
-  async function loadStereoMode() {
+  savePedalboardBtn?.addEventListener('click', async () => {
+    const statusEl = document.getElementById('pedalboard-status') as HTMLDivElement;
+    statusEl.textContent = 'Saving...';
+
+    // Get the currently selected pedalboard title
+    const selectedOption = pedalboardSelector.options[pedalboardSelector.selectedIndex];
+    const title = selectedOption ? selectedOption.textContent : 'My Pedalboard';
+
     try {
-      const response = await fetch('/api/effects/stereo');
-      if (!response.ok) throw new Error('Failed to load stereo mode');
+      // Save the current pedalboard in-place
+      const response = await fetch(`/api/effects/pedalboard/save?title=${encodeURIComponent(title)}&asNew=0`, { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to save pedalboard');
+      statusEl.textContent = 'Pedalboard saved';
+    } catch (error) {
+      statusEl.textContent = `Error saving pedalboard`;
+    }
+  });
+
+  createPedalboardBtn?.addEventListener('click', () => {
+    createPedalboardModal.classList.remove('hidden');
+    newPedalboardName.value = '';
+    newPedalboardName.focus();
+  });
+
+  cancelCreatePedalboard?.addEventListener('click', () => {
+    createPedalboardModal.classList.add('hidden');
+  });
+
+  confirmCreatePedalboard?.addEventListener('click', async () => {
+    const name = newPedalboardName.value.trim();
+    if (!name) return;
+
+    const statusEl = document.getElementById('pedalboard-status') as HTMLDivElement;
+    statusEl.textContent = 'Creating...';
+
+    try {
+      const response = await fetch(`/api/effects/pedalboard/save?title=${encodeURIComponent(name)}&asNew=1`, { method: 'POST' });
+      if (!response.ok) throw new Error('Failed to create pedalboard');
       const data = await response.json();
-      if (data.stereo) {
-        (document.getElementById('stereo-radio') as HTMLInputElement).checked = true;
-      } else {
-        (document.getElementById('mono-radio') as HTMLInputElement).checked = true;
-      }
+      createPedalboardModal.classList.add('hidden');
+      statusEl.textContent = 'Pedalboard created';
+      // Set the new pedalboard as current and refresh UI
+      currentPedalboardPath = data.bundlepath;
+      loadPedalboards();
+      loadCurrentPedalboard();
     } catch (error) {
-      console.error('Failed to load stereo mode:', error);
+      statusEl.textContent = `Error creating pedalboard`;
     }
-  }
+  });
 
-  // Fetch logs for selected process
-  async function fetchLogs(process: string) {
-    if (!process) {
-      logsContainer.classList.add('hidden');
-      return;
-    }
+  // Add effect to pedalboard
+  addEffectBtn?.addEventListener('click', async () => {
+    if (!selectedEffectUri) return;
+
+    const statusEl = document.getElementById('effects-status') as HTMLDivElement;
+    statusEl.textContent = 'Adding effect...';
+
     try {
-      const response = await fetch(`/api/effects/${process}/logs?lines=50`);
-      if (!response.ok) throw new Error('Failed to load logs');
-      const data: LogEntry = await response.json();
-      logsContainer.textContent = data.lines.join('\n');
-      logsContainer.classList.remove('hidden');
+      // mod-ui uses /effect/add/<instance>?uri=<uri>
+      // Instance format is <unique_name> (e.g., nam1), NOT /graph/nam1
+      const response = await fetch(`/api/effects/effect/add/nam1?uri=${encodeURIComponent(selectedEffectUri)}`, { method: 'GET' });
+      if (!response.ok) throw new Error('Failed to add effect');
+      statusEl.textContent = 'Effect added';
+      loadCurrentPedalboard();
+      // Deselect effect
+      document.querySelectorAll('.lcd-effect-item').forEach(i => i.classList.remove('selected'));
+      selectedEffectUri = '';
+      addEffectBtn.disabled = true;
     } catch (error) {
-      logsContainer.textContent = 'Error loading logs';
-      logsContainer.classList.remove('hidden');
+      statusEl.textContent = `Error adding effect`;
     }
-  }
+  });
 
-  // Handle model selection
+  // Model selection handler (uses mod-ui /effect/parameter/set endpoint)
+  const modelStatus = document.getElementById('model-status') as HTMLDivElement;
+
   modelSelector?.addEventListener('change', async () => {
     const selectedModel = modelSelector.value;
     if (!selectedModel) return;
 
     try {
-      const response = await fetch(`/api/effects/model/${selectedModel}`, { method: 'POST' });
+      // NAM LV2 plugin URI
+      const PLUGIN_URI = "http://github.com/mikeoliphant/neural-amp-modeler-lv2";
+      const MODEL_PROPERTY = PLUGIN_URI + "#model"; // Full property URI for model param
+      const modelPath = `/opt/nam/models/${selectedModel}`;
+
+      // Set model via mod-ui's parameter set endpoint
+      // Format: symbol/instance/portsymbol/value
+      const response = await fetch('/api/effects/effect/parameter/set/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: `${PLUGIN_URI}/graph/nam1/${MODEL_PROPERTY}/${encodeURIComponent(modelPath)}`
+      });
+
       if (!response.ok) throw new Error('Failed to select model');
-      const data = await response.json();
       currentModelName.textContent = selectedModel;
-      const modelStatus = document.getElementById('model-status') as HTMLDivElement;
-      modelStatus.textContent = data.status;
+      modelStatus.textContent = 'Model selected';
     } catch (error) {
-      const modelStatus = document.getElementById('model-status') as HTMLDivElement;
       modelStatus.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
     }
   });
 
-  // Handle stereo mode change
-  document.querySelectorAll('input[name="stereo"]').forEach(radio => {
-    radio.addEventListener('change', async (e) => {
-      const target = e.target as HTMLInputElement;
-      const stereo = target.value === 'true';
-
-      try {
-        const response = await fetch(`/api/effects/stereo/${stereo}`, { method: 'POST' });
-        if (!response.ok) throw new Error('Failed to set mode');
-        stereoStatus.textContent = `Switched to ${stereo ? 'STEREO' : 'MONO'} mode`;
-      } catch (error) {
-        stereoStatus.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
-      }
-    });
-  });
-
-  // Handle model file upload
+  // Handle model file upload (uses file_api service for storage)
   modelUpload?.addEventListener('change', async () => {
     const file = modelUpload.files?.[0];
     if (!file) return;
@@ -284,67 +603,61 @@ import Layout from '../layouts/Layout.astro';
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch('/api/effects/model/upload', {
+      // file_api service handles file upload
+      const response = await fetch('/api/model/upload', {
         method: 'POST',
         body: formData
       });
 
       if (!response.ok) throw new Error('Upload failed');
-      const data = await response.json();
-      uploadStatus.textContent = `Uploaded: ${data.uploaded}`;
+
+      // Auto-select the uploaded model
+      const selectedModel = file.name;
+      const PLUGIN_URI = "http://github.com/mikeoliphant/neural-amp-modeler-lv2";
+      const MODEL_PROPERTY = PLUGIN_URI + "#model";
+      const modelPath = `/opt/nam/models/${selectedModel}`;
+
+      // Set model via mod-ui's parameter set endpoint
+      // Format: symbol/instance/portsymbol/value
+      const selectResponse = await fetch('/api/effects/effect/parameter/set/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: `${PLUGIN_URI}/graph/nam1/${MODEL_PROPERTY}/${encodeURIComponent(modelPath)}`
+      });
+
+      if (selectResponse.ok) {
+        uploadStatus.textContent = `Uploaded and selected: ${file.name}`;
+        currentModelName.textContent = file.name;
+        modelSelector.value = file.name;
+      } else {
+        uploadStatus.textContent = `Uploaded: ${file.name}`;
+      }
+
       modelUpload.value = '';
       loadModels();
-      loadCurrentModel();
     } catch (error) {
       uploadStatus.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
       modelUpload.value = '';
     }
   });
 
-  // Handle device addition
-  document.getElementById('add-device-btn')?.addEventListener('click', async () => {
-    const device = availableDevices.value;
-    if (!device) return;
-
-    try {
-      const response = await fetch(`/api/effects/devices/${device}`, { method: 'POST' });
-      if (!response.ok) throw new Error('Failed to add device');
-      loadDevices();
-    } catch (error) {
-      document.getElementById('devices-status')!.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
+  // Initial load - loadPedalboards must complete before loadCurrentPedalboard
+  loadPedalboards().then(() => {
+    // Only load pedalboard info if we have pedalboards
+    if (pedalboards.length > 0) {
+      loadCurrentPedalboard();
+      loadCurrentModel();
+    } else {
+      currentEffectsContainer.innerHTML = '<p class="text-lcd-600">No pedalboards available</p>';
+      currentModelName.textContent = 'None selected';
     }
+  }).catch((_err) => {
+    // On error, still try to load effects and models
+    currentEffectsContainer.innerHTML = '<p class="text-lcd-600">No pedalboards available</p>';
+    currentModelName.textContent = 'None selected';
   });
-
-  // Handle restart
-  document.getElementById('restart-btn')?.addEventListener('click', async () => {
-    const restartStatus = document.getElementById('restart-status') as HTMLDivElement;
-    restartStatus.textContent = 'Restarting...';
-
-    try {
-      const response = await fetch('/api/effects/jackd/restart', { method: 'POST' });
-      if (!response.ok) throw new Error('Restart failed');
-      restartStatus.textContent = 'Services restarted';
-      setTimeout(loadStatus, 2000);
-    } catch (error) {
-      restartStatus.textContent = `Error: ${error instanceof Error ? error.message : String(error)}`;
-    }
-  });
-
-  // Log selector change handler
-  logSelector?.addEventListener('change', (e) => {
-    const target = e.target as HTMLSelectElement;
-    fetchLogs(target.value);
-  });
-
-  // Initial load
-  loadStatus();
-  loadCurrentModel();
+  loadEffects();
   loadModels();
-  loadDevices();
-  loadStereoMode();
-
-  // Refresh status every 5 seconds
-  setInterval(loadStatus, 5000);
 </script>
 
 <style>
@@ -356,7 +669,45 @@ import Layout from '../layouts/Layout.astro';
     @apply outline-none;
     box-shadow: 0 0 20px rgba(234, 179, 8, 0.5);
   }
-  .lcd-radio {
-    @apply w-4 h-4 accent-lcd-400;
+  .lcd-input {
+    @apply bg-lcd-950 border-2 border-lcd-300 text-lcd-200 font-mono rounded-sm px-2 py-1 w-full;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
+  }
+  .lcd-effect-item {
+    @apply bg-lcd-950 border-2 border-lcd-300 text-lcd-200 font-mono rounded-sm px-2 py-1 cursor-pointer;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.15);
+  }
+  .lcd-effect-item:hover {
+    @apply bg-lcd-800;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.25);
+  }
+  .lcd-effect-item.selected {
+    @apply bg-lcd-600;
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.4);
+  }
+  .led-dot {
+    @apply inline-block w-2 h-2 bg-lcd-400 rounded-full;
+    box-shadow: 0 0 5px rgba(234, 179, 8, 0.5);
+  }
+  .lcd-panel {
+    @apply bg-lcd-900 border-2 border-lcd-300 rounded-sm;
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.3);
+  }
+  .lcd-slider {
+    @apply w-full h-2 bg-lcd-900 rounded-sm;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .lcd-slider::-webkit-slider-thumb {
+    @apply w-3 h-3 bg-lcd-400 rounded-full cursor-pointer;
+    -webkit-appearance: none;
+    box-shadow: 0 0 5px rgba(234, 179, 8, 0.5);
+  }
+  .lcd-effect-config-item {
+    @apply bg-lcd-900 border-2 border-lcd-600 rounded-sm;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.15);
+  }
+  .lcd-effect-config-item:hover {
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.25);
   }
 </style>

@@ -1,0 +1,151 @@
+@import "tailwindcss";
+
+@theme {
+  --color-lcd-50: #fefce8;
+  --color-lcd-100: #fef9c3;
+  --color-lcd-200: #fef08a;
+  --color-lcd-300: #fde047;
+  --color-lcd-400: #facc15;
+  --color-lcd-500: #eab308;
+  --color-lcd-600: #ca8a04;
+  --color-lcd-700: #a16207;
+  --color-lcd-800: #854d0e;
+  --color-lcd-900: #5c2104;
+  --color-lcd-950: #211300;
+  --color-led-500: #44e674;
+  --color-led-600: #32d76a;
+  --font-family-mono: "Orbitron", sans-serif;
+}
+
+.lcd-box {
+  @apply bg-black border-4 border-lcd-400 rounded-sm;
+  box-shadow: 0 0 40px rgba(234, 179, 8, 0.3),
+              inset 0 0 20px rgba(234, 179, 8, 0.15);
+  position: relative;
+}
+
+.lcd-box::before {
+  content: '';
+  @apply absolute inset-0 pointer-events-none;
+  background: linear-gradient(180deg, rgba(234, 179, 8, 0.15) 0%, transparent 20%);
+}
+
+.corner-circle {
+  @apply absolute w-4 h-4 rounded-full pointer-events-none;
+}
+
+.circle-top-left {
+  @apply top-2 left-2;
+  background: transparent;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+}
+
+.circle-top-right {
+  @apply top-2 right-2;
+  background: transparent;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+}
+
+.circle-bottom-left {
+  @apply bottom-2 left-2;
+  background: transparent;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+}
+
+.circle-bottom-right {
+  @apply bottom-2 right-2;
+  background: transparent;
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5);
+}
+
+.lcd-text {
+  @apply text-lcd-300 font-bold font-mono uppercase;
+  text-shadow: 0 0 10px rgba(234, 179, 8, 0.6);
+}
+
+.lcd-input {
+  @apply bg-lcd-950 border-2 border-lcd-300 text-lcd-200 font-mono rounded-sm px-2 py-1 w-full;
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
+}
+
+.lcd-accent {
+  @apply text-lcd-400 font-extrabold uppercase text-center;
+  text-shadow: 0 0 15px rgba(234, 179, 8, 0.8);
+}
+
+.lcd-panel {
+  @apply bg-lcd-900 border-2 border-lcd-300 rounded-sm;
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.3);
+}
+
+.lcd-button {
+  @apply bg-lcd-950 border-3 border-lcd-300 text-lcd-200 font-bold font-mono uppercase tracking-widest rounded-sm py-1 text-xs flex-1;
+  box-shadow: 0 0 30px rgba(234, 179, 8, 0.45);
+  transition: all 0.2s ease;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.7);
+}
+
+.lcd-button:hover {
+  @apply bg-lcd-900;
+  box-shadow: 0 0 35px rgba(234, 179, 8, 0.7);
+}
+
+.lcd-divider {
+  @apply border-t-4 border-lcd-500 rounded-full;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.lcd-link {
+  @apply text-lcd-300 underline decoration-lcd-400 font-bold uppercase;
+}
+
+.lcd-link:hover {
+  @apply text-lcd-200;
+}
+
+.lcd-select-wrapper {
+  @apply text-lcd-200 font-mono inline-flex items-center justify-between w-full;
+}
+
+.lcd-select {
+  @apply px-2 py-1 bg-lcd-700 inline-flex rounded-sm justify-between w-full;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.7);
+  outline: none;
+}
+.lcd-select[data-open] {
+  @apply rounded-b-none;
+}
+
+.lcd-select-options {
+  @apply bg-lcd-700 rounded-sm rounded-t-none w-(--button-width);
+  outline: none;
+}
+
+.lcd-select-option {
+  @apply px-2 py-1 text-lcd-200 font-mono text-xs cursor-pointer select-none;
+}
+
+.lcd-select-option:hover {
+  @apply text-lcd-200;
+}
+
+.lcd-select-option[data-selected] {
+  @apply text-lcd-300 font-bold;
+}
+
+.lcd-select-option[data-focus] {
+  @apply bg-lcd-600 outline-none;
+}
+
+.led-dot {
+  @apply inline-block w-4 h-4 rounded-full;
+  background: linear-gradient(135deg, #44e674 0%, #32d76a 100%);
+  box-shadow: 0 0 15px rgba(68, 230, 116, 0.7);
+  animation: pulse-led 2s infinite;
+}
+
+@keyframes pulse-led {
+  0%, 100% { box-shadow: 0 0 15px rgba(68, 230, 116, 0.7); }
+  50% { box-shadow: 0 0 25px rgba(68, 230, 116, 0.9); }
+}

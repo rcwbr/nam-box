@@ -1,0 +1,32 @@
+---
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+
+import "../styles/global.css";
+---
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width" />
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-black min-h-screen text-lcd-300 font-mono flex items-center justify-center" style="font-family: 'Orbitron', sans-serif;">
+    <main class="max-w-sm mx-auto relative pt-1">
+      <div class="lcd-box p-8 min-h-[min(calc(100vh-8px),750px)] w-full relative">
+        <div class="corner-circle circle-top-left"></div>
+        <div class="corner-circle circle-top-right"></div>
+        <div class="corner-circle circle-bottom-left"></div>
+        <div class="corner-circle circle-bottom-right"></div>
+        <slot />
+      </div>
+    </main>
+  </body>
+</html>

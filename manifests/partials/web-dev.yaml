@@ -1,0 +1,22 @@
+x-common: &common
+  platform: ${PLATFORM}
+
+services:
+  web:
+    <<: *common
+    image: web-builder
+    entrypoint: [npm, run, dev]
+    labels:
+      - "traefik.enable=true"
+      # Catch-all router - lowest priority so it doesn't catch /api/effects or /api/bluetooth-manager
+      - "traefik.http.middlewares.web-strip.stripprefix.prefixes=/"
+      - "traefik.http.routers.web.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.web.middlewares=web-strip"
+      - "traefik.http.routers.web.entrypoints=websecure"
+      - "traefik.http.routers.web.priority=10"
+      - "traefik.http.routers.web.service=web@docker"
+      - "traefik.http.services.web.loadbalancer.server.port=8000"
+    networks:
+      - proxy
+    volumes:
+      - ../services/web/preact:/app

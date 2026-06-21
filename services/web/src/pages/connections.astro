@@ -1,0 +1,426 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout title="NAM Connections">
+    <div class="space-y-4">
+      <h1 class="text-2xl lcd-accent tracking-widest uppercase">Connections</h1>
+      <div class="lcd-divider my-3"></div>
+
+      <!-- Section 1: Connected Outputs Row -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Connected Outputs</h2>
+        <div id="connected-outputs" class="flex flex-wrap gap-2 min-h-10 p-2 border-2 border-lcd-600 rounded-sm">
+          <p class="text-lcd-600 text-xs">No connected outputs</p>
+        </div>
+      </div>
+
+      <!-- Section 2: Mixed-Mode Units (Center) -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Port Units</h2>
+        <div id="units-container" class="relative h-64 overflow-y-auto overflow-x-hidden border-2 border-lcd-600 rounded-sm bg-black/50 p-2">
+          <p class="text-lcd-600 text-xs">Loading units...</p>
+        </div>
+      </div>
+
+      <!-- Section 3: Connected Inputs Row -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Connected Inputs</h2>
+        <div id="connected-inputs" class="flex flex-wrap gap-2 min-h-10 p-2 border-2 border-lcd-600 rounded-sm">
+          <p class="text-lcd-600 text-xs">No connected inputs</p>
+        </div>
+      </div>
+
+      <!-- Section 4: Unconnected Units (Vertical List) -->
+      <div class="space-y-2">
+        <h2 class="text-xs lcd-text uppercase tracking-widest">Unconnected Units</h2>
+        <div id="unconnected-units" class="space-y-2 max-h-40 overflow-y-auto">
+          <p class="text-lcd-600 text-xs">Loading...</p>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="pt-2 space-y-2">
+        <button id="create-unit-btn" class="lcd-button px-4 py-2 text-xs tracking-widest w-full">CREATE UNIT</button>
+        <p id="create-mode-indicator" class="text-xs text-lcd-500 h-4 hidden">Click a port to create a unit</p>
+        <button id="refresh-btn" class="lcd-button px-4 py-2 text-xs tracking-widest w-full">REFRESH</button>
+      </div>
+    </div>
+</Layout>
+
+<script>
+  // Core Data Structures - Controller Layer
+  interface Port {
+    name: string;
+    direction: 'input' | 'output';
+    is_physical: boolean;
+    is_terminal: boolean;
+    connection_id?: string | null;
+    unit_id?: string | null;
+  }
+
+  interface PortUnit {
+    id: string;
+    name: string;
+    input_ports: Port[];
+    output_ports: Port[];
+    created_at: number;
+    updated_at: number;
+    is_connected?: boolean;
+  }
+
+  interface Connection {
+    id: string;
+    output_port: string;
+    input_port: string;
+  }
+
+  interface AppState {
+    ports: Map<string, Port>;
+    units: Map<string, PortUnit>;
+    connections: Map<string, Connection>;
+    active_output?: string | null;
+    create_mode: boolean;
+    add_port_mode: { unit_id: string; active: boolean } | null;
+  }
+
+  // Global state
+  const state: AppState = {
+    ports: new Map(),
+    units: new Map(),
+    connections: new Map(),
+    create_mode: false,
+    add_port_mode: null,
+  };
+
+  // DOM Elements
+  const connectedOutputs = document.getElementById('connected-outputs') as HTMLDivElement;
+  const connectedInputs = document.getElementById('connected-inputs') as HTMLDivElement;
+  const unconnectedUnits = document.getElementById('unconnected-units') as HTMLDivElement;
+  const unitsContainer = document.getElementById('units-container') as HTMLDivElement;
+  const createUnitBtn = document.getElementById('create-unit-btn') as HTMLButtonElement;
+  const createModeIndicator = document.getElementById('create-mode-indicator') as HTMLParagraphElement;
+  const refreshBtn = document.getElementById('refresh-btn') as HTMLButtonElement;
+
+  // Load initial state
+  async function loadInitialState() {
+    try {
+      const [portsResponse, unitsResponse] = await Promise.all([
+        fetch('/api/effects/ports'),
+        fetch('/api/effects/port-units')
+      ]);
+
+      if (portsResponse.ok) {
+        const portsData = await portsResponse.json();
+        state.ports = new Map(portsData.ports.map((p: Port) => [p.name, p]));
+        state.connections = new Map(portsData.connections?.map((c: Connection) => [c.id, c]) || []);
+      }
+
+      if (unitsResponse.ok) {
+        const unitsData = await unitsResponse.json();
+        state.units = new Map(unitsData.units.map((u: PortUnit) => [u.id, u]));
+      }
+
+      computeDerivedState();
+    } catch (error) {
+      console.error('Failed to load initial state:', error);
+    }
+  }
+
+  // Compute derived view state
+  function computeDerivedState() {
+    const connectedOutputsPorts: Port[] = [];
+    const connectedInputsPorts: Port[] = [];
+    const unconnectedUnitsList: PortUnit[] = [];
+    const mixedModeUnits: PortUnit[] = [];
+
+    // Categorize connected ports
+    state.ports.forEach(port => {
+      if (port.connection_id) {
+        if (port.direction === 'output') {
+          connectedOutputsPorts.push(port);
+        } else {
+          connectedInputsPorts.push(port);
+        }
+      }
+    });
+
+    // Categorize units by mode and connection state
+    state.units.forEach(unit => {
+      // Compute is_connected based on port connection status
+      unit.is_connected = [...unit.input_ports, ...unit.output_ports].some(p => p.connection_id);
+      const classification = classifyUnit(unit);
+      if (classification.mode === 'mixed') {
+        mixedModeUnits.push(unit);
+      } else if (!unit.is_connected) {
+        unconnectedUnitsList.push(unit);
+      }
+    });
+
+    renderConnectedOutputs(connectedOutputsPorts);
+    renderConnectedInputs(connectedInputsPorts);
+    renderMixedModeUnits(mixedModeUnits);
+    renderUnconnectedUnits(unconnectedUnitsList);
+  }
+
+  function renderConnectedOutputs(ports: Port[]) {
+    if (ports.length === 0) {
+      connectedOutputs.innerHTML = '<p class="text-lcd-600 text-xs">No connected outputs</p>';
+      return;
+    }
+    connectedOutputs.innerHTML = ports.map(port =>
+      '<div class="lcd-connected-port px-2 py-1 text-xs font-mono cursor-pointer" data-port="' + port.name + '">' +
+        '<span class="led-dot mr-1"></span>' + port.name +
+      '</div>'
+    ).join('');
+  }
+
+  function renderConnectedInputs(ports: Port[]) {
+    if (ports.length === 0) {
+      connectedInputs.innerHTML = '<p class="text-lcd-600 text-xs">No connected inputs</p>';
+      return;
+    }
+    connectedInputs.innerHTML = ports.map(port =>
+      '<div class="lcd-connected-port px-2 py-1 text-xs font-mono cursor-pointer" data-port="' + port.name + '">' +
+        '<span class="led-dot mr-1"></span>' + port.name +
+      '</div>'
+    ).join('');
+  }
+
+  function renderMixedModeUnits(units: PortUnit[]) {
+    if (units.length === 0) {
+      unitsContainer.innerHTML = '<p class="text-lcd-600 text-xs">No mixed-mode units</p>';
+      return;
+    }
+
+    unitsContainer.innerHTML = units.map(unit => {
+      let html = '<div class="lcd-mixed-unit-box p-4 mb-3 cursor-pointer" data-unit-id="' + unit.id + '">';
+      html += '<div class="flex justify-between items-center mb-3">';
+      html += '<span class="text-xs lcd-text uppercase tracking-widest">' + unit.name + '</span>';
+      html += '<button class="lcd-add-port-btn px-1 text-xs" data-unit-id="' + unit.id + '">[+]</button>';
+      html += '</div>';
+
+      if (unit.input_ports.length > 0) {
+        html += '<div class="border-t-2 border-lcd-600 pt-2 mb-2">';
+        html += '<div class="text-xs text-lcd-500 mb-1">INPUT PORTS</div>';
+        html += '<div class="space-y-1">';
+        unit.input_ports.forEach(p => {
+          html += '<div class="flex items-center gap-2 text-xs">';
+          html += '<span class="text-lg">' + (p.connection_id ? '●' : '○') + '</span>';
+          html += '<span class="font-mono text-lcd-300">' + p.name + '</span>';
+          html += '</div>';
+        });
+        html += '</div></div>';
+      }
+
+      if (unit.output_ports.length > 0) {
+        html += '<div class="border-t-2 border-lcd-600 pt-2">';
+        html += '<div class="text-xs text-lcd-500 mb-1">OUTPUT PORTS</div>';
+        html += '<div class="space-y-1">';
+        unit.output_ports.forEach(p => {
+          html += '<div class="flex items-center gap-2 text-xs">';
+          html += '<span class="text-lg">' + (p.connection_id ? '●' : '○') + '</span>';
+          html += '<span class="font-mono text-lcd-300">' + p.name + '</span>';
+          html += '</div>';
+        });
+        html += '</div></div>';
+      }
+
+      html += '</div>';
+      return html;
+    }).join('');
+  }
+
+  function renderUnconnectedUnits(units: PortUnit[]) {
+    if (units.length === 0) {
+      unconnectedUnits.innerHTML = '<p class="text-lcd-600 text-xs">No unconnected units</p>';
+      return;
+    }
+    unconnectedUnits.innerHTML = units.map(unit => {
+      let html = '<div class="lcd-unit-box p-3 cursor-pointer" data-unit-id="' + unit.id + '">';
+      html += '<div class="flex justify-between items-center mb-2">';
+      html += '<span class="text-xs lcd-text uppercase">' + unit.name + '</span>';
+      html += '<button class="lcd-add-port-btn px-1 text-xs" data-unit-id="' + unit.id + '">[+]</button>';
+      html += '</div>';
+      html += '<div class="space-y-1">';
+      unit.input_ports.forEach(p => {
+        html += '<div class="flex items-center gap-1 text-xs">';
+        html += '<span class="text-lcd-400">○</span>';
+        html += '<span class="font-mono text-lcd-300">' + p.name + '</span>';
+        html += '</div>';
+      });
+      unit.output_ports.forEach(p => {
+        html += '<div class="flex items-center gap-1 text-xs">';
+        html += '<span class="text-lcd-400">○</span>';
+        html += '<span class="font-mono text-lcd-300">' + p.name + '</span>';
+        html += '</div>';
+      });
+      html += '</div></div>';
+      return html;
+    }).join('');
+  }
+
+  // Unit classification
+  function classifyUnit(unit: PortUnit): { is_unimode: boolean; mode: 'input' | 'output' | 'mixed' } {
+    const has_inputs = unit.input_ports.length > 0;
+    const has_outputs = unit.output_ports.length > 0;
+
+    if (has_inputs && has_outputs) {
+      return { is_unimode: false, mode: 'mixed' };
+    }
+    return { is_unimode: true, mode: has_outputs ? 'output' : 'input' };
+  }
+
+  // Event handlers
+  createUnitBtn?.addEventListener('click', () => {
+    state.create_mode = true;
+    createModeIndicator.classList.remove('hidden');
+    createUnitBtn.textContent = 'SELECT PORT...';
+  });
+
+  // Add Port button handlers
+  document.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    if (target.classList.contains('lcd-add-port-btn')) {
+      const unitId = target.dataset.unitId;
+      if (unitId) {
+        state.add_port_mode = { unit_id: unitId, active: true };
+      }
+      return;
+    }
+
+    // Handle port clicks for create/add-port modes
+    if (target.closest('.lcd-connected-port') || target.closest('.lcd-mixed-unit-box') || target.closest('.lcd-unit-box')) {
+      const portName = target.closest('[data-port]')?.getAttribute('data-port');
+      if (portName && state.add_port_mode?.active) {
+        addPortToUnit(state.add_port_mode.unit_id, portName);
+        state.add_port_mode = null;
+      }
+      if (portName && state.create_mode) {
+        createUnitFromPort(portName);
+        state.create_mode = false;
+        createModeIndicator.classList.add('hidden');
+        createUnitBtn.textContent = 'CREATE UNIT';
+      }
+      return;
+    }
+  });
+
+  async function createUnitFromPort(portName: string) {
+    const unitName = inferUnitName(portName);
+    try {
+      const response = await fetch('/api/effects/port-units', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: unitName })
+      });
+      if (response.ok) {
+        const unit = await response.json();
+        state.units.set(unit.id, unit);
+        await addPortToUnit(unit.id, portName);
+      }
+    } catch (error) {
+      console.error('Failed to create unit:', error);
+    }
+  }
+
+  async function addPortToUnit(unitId: string, portName: string) {
+    try {
+      const response = await fetch('/api/effects/port-units/' + unitId + '/ports/' + encodeURIComponent(portName), {
+        method: 'POST'
+      });
+      if (response.ok) {
+        await loadInitialState();
+      }
+    } catch (error) {
+      console.error('Failed to add port to unit:', error);
+    }
+  }
+
+  function inferUnitName(portName: string): string {
+    let name = portName;
+    const patterns = [
+      /\d+$/,
+      /(_in|_out)$/,
+      /(_input|_output)$/,
+      /(In|Out)$/,
+      /(L|R)$/,
+    ];
+
+    for (const pattern of patterns) {
+      name = name.replace(pattern, '') || name;
+    }
+
+    if (name.startsWith('system:')) {
+      name = name.replace('system:', '');
+    }
+
+    name = name
+      .replace(/^(.+?)[:-_].*$/, '$1')
+      .replace(/_/g, ' ')
+      .replace(/-/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+
+    return name.trim() || 'Unnamed Unit';
+  }
+
+  // Refresh handler
+  refreshBtn?.addEventListener('click', loadInitialState);
+
+  // Initial load
+  loadInitialState();
+</script>
+
+<style>
+  .lcd-connected-port {
+    background-color: #0a0a0a;
+    border: 2px solid #eab308;
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
+  }
+
+  .lcd-connected-port:hover {
+    background-color: #252525;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.4);
+  }
+
+  .lcd-unit-box {
+    background-color: #0a0a0a;
+    border: 2px solid #eab308;
+    border-radius: 2px;
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.15);
+  }
+
+  .lcd-unit-box:hover {
+    background-color: #252525;
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.25);
+  }
+
+  .lcd-add-port-btn {
+    background-color: #718188;
+    border: 2px solid #eab308;
+    border-radius: 2px;
+    color: #ffffe0;
+    box-shadow: 0 0 8px rgba(234, 179, 8, 0.3);
+  }
+
+  .lcd-add-port-btn:hover {
+    background-color: #d9e229;
+  }
+
+  .lcd-mixed-unit-box {
+    background-color: #151515;
+    border: 2px solid #eab308;
+    border-radius: 2px;
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.2);
+  }
+
+  .lcd-mixed-unit-box:hover {
+    background-color: #252525;
+    box-shadow: 0 0 25px rgba(234, 179, 8, 0.3);
+  }
+</style>
