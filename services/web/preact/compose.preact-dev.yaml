@@ -1,0 +1,81 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Parallel Dev Compose for Git Worktrees
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This compose file enables running a separate Hermes WebUI dev stack
+# for each git worktree without port or container-name collisions.
+#
+# Key design:
+#   1. Use `docker compose -p <project-name>` — Docker Compose prefixes all
+#      container names with the project name, so unique project names give
+#      unique container names automatically.
+#   2. Ports are parameterized via ${WEB_PORT} and ${MOCK_API_PORT} —
+#      the worktree script generates these offsets to avoid collisions.
+#   3. The network name is fixed (compose auto-prefixes it with the project
+#      name, so it's still unique per worktree).
+#   4. Only frontend dev services are started (mock API + Astro dev server).
+#      Shared backend services (proxy, effects, model) are NOT included —
+#      each worktree's frontend connects to the same shared backend stack.
+#
+# Usage:
+#   DOCKER_API_VERSION=1.43 docker compose \
+#     -p <project-name> \
+#     -f services/web/preact/compose.preact-dev.yaml \
+#     --env-file <env-file> \
+#     up -d
+
+services:
+
+  # ─── Mock API Server ────────────────────────────────────────────────────────
+  # Simulates the mod-api backend endpoints for the pedalboard DAG.
+  # Runs on a unique port (default 8001 + offset) to allow parallel stacks.
+  #
+  # NOTE: mock-api.js uses require() (CommonJS) but package.json has
+  # "type": "module", so we wrap it with `node -e "require(...)"` to force
+  # CommonJS interpretation. This matches the pattern in Dockerfile.preact-dev.
+  mock-api:
+    image: node:${NODE_VERSION:-22}
+    restart: unless-stopped
+    entrypoint: ["sh", "-c"]
+    command: ["node -e \"require('./mock-api.js')\""]
+    volumes:
+      - ${DOCKER_MOUNT_PATH:-/workspace}/services/web/preact:/app
+    working_dir: /app
+    ports:
+      - "${MOCK_API_PORT:-8001}:8001"
+    networks:
+      - devnet
+
+  # ─── Preact Dev Server ────────────────────────────────────────────────────
+  # The Astro dev server, serving the worktree's preact source.
+  # Uses astro.config.dev.mjs which proxies /api/effects and /api/model
+  # to the mock-api service.
+  web:
+    image: node:${NODE_VERSION:-22}
+    restart: unless-stopped
+    entrypoint: ["sh", "-c"]
+    # Install deps then start Astro dev server.
+    # node_modules is gitignored so it's not in the worktree; we need npm ci.
+    # npm ci is slower but ensures clean installs per worktree.
+    # To speed up, the node_modules volume can be shared across worktrees
+    # by uncommenting the volumes_mount line below.
+    command: ["sh -c 'npm ci --no-audit --no-fund 2>&1 | tail -1 && npx astro dev --host 0.0.0.0 --port 4322 --config astro.config.dev.mjs'"]
+    volumes:
+      - ${DOCKER_MOUNT_PATH:-/workspace}/services/web/preact:/app
+      # Uncomment to share node_modules across worktrees (faster, but coupling):
+      # - hermes-node-modules:/app/node_modules
+    working_dir: /app
+    ports:
+      - "${WEB_PORT:-4322}:4322"
+    depends_on:
+      mock-api:
+        condition: service_started
+    networks:
+      - devnet
+
+# ─── Network ──────────────────────────────────────────────────────────────────
+# Fixed name "devnet" — Docker Compose auto-prefixes with the project name,
+# so each worktree gets its own <project>-devnet network.
+networks:
+  devnet:
+    driver: bridge

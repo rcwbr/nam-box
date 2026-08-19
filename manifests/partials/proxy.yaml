@@ -9,9 +9,10 @@ services:
       - /opt/nam-box/ssl/nam-box.local:/etc/nam-box/ssl
       - /var/run/docker.sock:/var/run/docker.sock:ro
     ports:
-      - "80:80"
-      - "443:443"
+      - 80:80
+      - 443:443
     environment:
       CN: nam-box.local
     networks:
       - proxy
+    restart: unless-stopped

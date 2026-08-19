@@ -4,4 +4,10 @@ test/.cloudflared/*
 !test/.cloudflared/.gitkeep
 !test/.cloudflared/template.config.yml
 __pycache__
+*.egg-info
 node_modules
+services/mod-api/*
+.hermes-web-ui-home
+hermes-webui-docker/.env
+worktrees/
+.temp-upstream

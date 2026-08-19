@@ -1,0 +1,1430 @@
+{
+  "components": {
+    "schemas": {
+      "Connection": {
+        "description": "Represents an audio/MIDI connection between ports.\n\nA connection links an input port to an output port, enabling signal flow\nthrough the pedalboard.",
+        "properties": {
+          "id": {
+            "default": 0,
+            "description": "Unique identifier for this connection",
+            "title": "Id",
+            "type": "integer"
+          },
+          "input_port_id": {
+            "description": "ID of the input port (receiving signal)",
+            "title": "Input Port Id",
+            "type": "string"
+          },
+          "output_port_id": {
+            "description": "ID of the output port (sending signal)",
+            "title": "Output Port Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_port_id",
+          "output_port_id"
+        ],
+        "title": "Connection",
+        "type": "object"
+      },
+      "CreateConnectionRequest": {
+        "description": "Request body for creating a connection between ports.",
+        "properties": {
+          "input_port_id": {
+            "description": "ID of the input port (receiving signal)",
+            "title": "Input Port Id",
+            "type": "string"
+          },
+          "output_port_id": {
+            "description": "ID of the output port (sending signal)",
+            "title": "Output Port Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "input_port_id",
+          "output_port_id"
+        ],
+        "title": "CreateConnectionRequest",
+        "type": "object"
+      },
+      "CreateEffectRequest": {
+        "description": "Request body for adding an effect to a pedalboard.",
+        "properties": {
+          "effect_uri": {
+            "description": "Full URI of the LV2 plugin to instantiate",
+            "title": "Effect Uri",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Optional human-readable name for the effect instance",
+            "title": "Name"
+          }
+        },
+        "required": [
+          "effect_uri"
+        ],
+        "title": "CreateEffectRequest",
+        "type": "object"
+      },
+      "CreatePedalboardRequest": {
+        "description": "Request body for creating a pedalboard.",
+        "properties": {
+          "duplicate_current": {
+            "default": false,
+            "description": "If True, duplicate the current pedalboard's effects and connections",
+            "title": "Duplicate Current",
+            "type": "boolean"
+          },
+          "name": {
+            "description": "Human-readable name for the new pedalboard",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "CreatePedalboardRequest",
+        "type": "object"
+      },
+      "EffectInfo": {
+        "description": "Information about an effect/plugin.\n\nContains metadata about an LV2 plugin including its URI, name,\navailable ports, and parameter definitions (without current values).\n\nUsed for: GET /effects, GET /effects/{uri}",
+        "properties": {
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Human-readable plugin name",
+            "title": "Name"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/NumberParameterType"
+                },
+                {
+                  "$ref": "#/components/schemas/FilenameParameterType"
+                }
+              ]
+            },
+            "description": "Parameter definitions keyed by name",
+            "title": "Parameters",
+            "type": "object"
+          },
+          "ports": {
+            "description": "List of input/output ports on the plugin",
+            "items": {
+              "$ref": "#/components/schemas/Port"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "uri": {
+            "description": "Full URI of the LV2 plugin",
+            "title": "Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri"
+        ],
+        "title": "EffectInfo",
+        "type": "object"
+      },
+      "EffectInstance": {
+        "description": "Represents an instantiated effect plugin on a pedalboard.\n\nInherits from EffectInfo for ports and other metadata, but overrides parameters\nto store current values instead of definitions.",
+        "properties": {
+          "id": {
+            "default": 0,
+            "description": "Unique identifier for this effect instance",
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Human-readable plugin name",
+            "title": "Name"
+          },
+          "parameters": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/NumberParameter"
+                },
+                {
+                  "$ref": "#/components/schemas/FilenameParameter"
+                }
+              ]
+            },
+            "description": "Dictionary mapping parameter names to Parameter objects with values",
+            "title": "Parameters",
+            "type": "object"
+          },
+          "ports": {
+            "description": "List of input/output ports on the plugin",
+            "items": {
+              "$ref": "#/components/schemas/Port"
+            },
+            "title": "Ports",
+            "type": "array"
+          },
+          "uri": {
+            "description": "Full URI of the LV2 plugin",
+            "title": "Uri",
+            "type": "string"
+          }
+        },
+        "required": [
+          "uri"
+        ],
+        "title": "EffectInstance",
+        "type": "object"
+      },
+      "FilenameParameter": {
+        "description": "Filename parameter instance with a current value.\n\nExtends FilenameParameterType by adding a current value field.",
+        "properties": {
+          "default": {
+            "description": "Default file path",
+            "title": "Default",
+            "type": "string"
+          },
+          "name": {
+            "description": "The parameter name/symbol",
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "const": "filename",
+            "default": "filename",
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "description": "Current file path value",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "default",
+          "value"
+        ],
+        "title": "FilenameParameter",
+        "type": "object"
+      },
+      "FilenameParameterType": {
+        "description": "String parameter type representing a file path.\n\nRepresents parameters that accept file paths, such as\nNAM model files or impulse responses.",
+        "properties": {
+          "default": {
+            "description": "Default file path",
+            "title": "Default",
+            "type": "string"
+          },
+          "name": {
+            "description": "The parameter name/symbol",
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "const": "filename",
+            "default": "filename",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "default"
+        ],
+        "title": "FilenameParameterType",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "NumberParameter": {
+        "description": "Numeric parameter instance with a current value.\n\nExtends NumberParameterType by adding a current value field.",
+        "properties": {
+          "default": {
+            "description": "Default value for the parameter",
+            "title": "Default",
+            "type": "number"
+          },
+          "max": {
+            "description": "Maximum allowed value",
+            "title": "Max",
+            "type": "number"
+          },
+          "min": {
+            "description": "Minimum allowed value",
+            "title": "Min",
+            "type": "number"
+          },
+          "name": {
+            "description": "The parameter name/symbol",
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "const": "number",
+            "default": "number",
+            "title": "Type",
+            "type": "string"
+          },
+          "value": {
+            "description": "Current parameter value",
+            "title": "Value",
+            "type": "number"
+          }
+        },
+        "required": [
+          "name",
+          "min",
+          "max",
+          "default",
+          "value"
+        ],
+        "title": "NumberParameter",
+        "type": "object"
+      },
+      "NumberParameterType": {
+        "description": "Numeric parameter type with min/max constraints.\n\nRepresents control parameters like drive, tone, or level values\nthat have floating point values within a bounded range.",
+        "properties": {
+          "default": {
+            "description": "Default value for the parameter",
+            "title": "Default",
+            "type": "number"
+          },
+          "max": {
+            "description": "Maximum allowed value",
+            "title": "Max",
+            "type": "number"
+          },
+          "min": {
+            "description": "Minimum allowed value",
+            "title": "Min",
+            "type": "number"
+          },
+          "name": {
+            "description": "The parameter name/symbol",
+            "title": "Name",
+            "type": "string"
+          },
+          "type": {
+            "const": "number",
+            "default": "number",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "min",
+          "max",
+          "default"
+        ],
+        "title": "NumberParameterType",
+        "type": "object"
+      },
+      "Pedalboard": {
+        "description": "Represents a complete pedalboard configuration.\n\nA pedalboard contains effect instances and their connections.\nParameter values live inside each effect's parameters field.",
+        "properties": {
+          "connections": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Connection"
+            },
+            "description": "Dict of connections keyed by connection ID",
+            "title": "Connections",
+            "type": "object"
+          },
+          "effects": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EffectInstance"
+            },
+            "description": "Dict of effect instances keyed by instance ID",
+            "title": "Effects",
+            "type": "object"
+          },
+          "file": {
+            "description": "JSON filename for persistence (derived from name)",
+            "title": "File",
+            "type": "string"
+          },
+          "id": {
+            "description": "The unique pedalboard identifier",
+            "title": "Id",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Human-readable pedalboard name",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "file"
+        ],
+        "title": "Pedalboard",
+        "type": "object"
+      },
+      "Port": {
+        "description": "Port representation for audio/MIDI routing.\n\nRepresents an audio or MIDI port that can be used for signal routing\nin a pedalboard. Ports can be system ports (from JACK) or effect ports.",
+        "properties": {
+          "effect_instance_id": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The effect instance ID if owner_type is 'effect', None otherwise",
+            "title": "Effect Instance Id"
+          },
+          "name": {
+            "description": "Human-readable port name",
+            "title": "Name",
+            "type": "string"
+          },
+          "owner_type": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Either 'system' or 'effect'",
+            "title": "Owner Type"
+          },
+          "type": {
+            "description": "The type of port (input/output/midi_in/midi_out)",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "Port",
+        "type": "object"
+      },
+      "RenamePedalboardRequest": {
+        "description": "Request body for renaming a pedalboard.",
+        "properties": {
+          "name": {
+            "description": "New human-readable name for the pedalboard",
+            "title": "Name",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name"
+        ],
+        "title": "RenamePedalboardRequest",
+        "type": "object"
+      },
+      "SetParameterRequest": {
+        "description": "Request body for setting a parameter value.",
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "description": "The new parameter value",
+            "title": "Value"
+          }
+        },
+        "required": [
+          "value"
+        ],
+        "title": "SetParameterRequest",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "REST API for managing pedalboards, effects, and connections on MOD Audio platform",
+    "title": "Pedalboard API",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/api/v1/effects": {
+      "get": {
+        "description": "List all available effects in the system.\n\nReturns the catalog of effect types that can be instantiated.",
+        "operationId": "list_effects_api_v1_effects_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EffectInfo"
+                  },
+                  "title": "Response List Effects Api V1 Effects Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Effects",
+        "tags": [
+          "Effects"
+        ]
+      }
+    },
+    "/api/v1/effects/{uri}": {
+      "get": {
+        "description": "Get details for a specific effect by URI.\n\nRaises:\n    HTTPException: 404 if effect URI is not found in system.",
+        "operationId": "get_effect_api_v1_effects__uri__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "uri",
+            "required": true,
+            "schema": {
+              "title": "Uri",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Effect",
+        "tags": [
+          "Effects"
+        ]
+      }
+    },
+    "/api/v1/pedalboards": {
+      "get": {
+        "description": "List all available pedalboards with metadata.\n\nReturns a dict of all pedalboards keyed by ID.",
+        "operationId": "list_pedalboards_api_v1_pedalboards_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/Pedalboard"
+                  },
+                  "title": "Response List Pedalboards Api V1 Pedalboards Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Pedalboards",
+        "tags": [
+          "Pedalboards"
+        ]
+      },
+      "post": {
+        "description": "Create a new pedalboard.\n\nCan create empty or as a duplicate of the current board.",
+        "operationId": "create_pedalboard_api_v1_pedalboards_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreatePedalboardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pedalboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Pedalboard",
+        "tags": [
+          "Pedalboards"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/current": {
+      "get": {
+        "description": "Get the current pedalboard.\n\nReturns full details of the currently selected pedalboard.",
+        "operationId": "get_current_pedalboard_api_v1_pedalboards_current_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/Pedalboard"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Current Pedalboard Api V1 Pedalboards Current Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Current Pedalboard",
+        "tags": [
+          "Pedalboards"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}": {
+      "delete": {
+        "description": "Delete a pedalboard.\n\nIf deleting the current pedalboard, no pedalboard will be current\nuntil a new one is selected.\n\nRaises:\n    HTTPException: 404 if pedalboard ID doesn't exist.",
+        "operationId": "delete_pedalboard_api_v1_pedalboards__pedalboard_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Pedalboard",
+        "tags": [
+          "Pedalboards"
+        ]
+      },
+      "get": {
+        "description": "Get full details of a specific pedalboard.\n\nRaises:\n    HTTPException: 404 if pedalboard ID doesn't exist.",
+        "operationId": "get_pedalboard_api_v1_pedalboards__pedalboard_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pedalboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Pedalboard",
+        "tags": [
+          "Pedalboards"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/connections": {
+      "get": {
+        "description": "List all connections on a pedalboard.\n\nRaises:\n    HTTPException: 404 if pedalboard doesn't exist.",
+        "operationId": "list_connections_api_v1_pedalboards__pedalboard_id__connections_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/Connection"
+                  },
+                  "title": "Response List Connections Api V1 Pedalboards  Pedalboard Id  Connections Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Connections",
+        "tags": [
+          "Connections"
+        ]
+      },
+      "post": {
+        "description": "Create a connection between an input port and an output port.\n\nConnects two ports to establish signal flow in the pedalboard.\n\nRaises:\n    HTTPException: 404 if pedalboard or specified port doesn't exist.",
+        "operationId": "create_connection_api_v1_pedalboards__pedalboard_id__connections_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateConnectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Connection",
+        "tags": [
+          "Connections"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/connections/{connection_id}": {
+      "delete": {
+        "description": "Remove a connection.\n\nDisconnects the ports in mod-host and removes the connection record.\n\nRaises:\n    HTTPException: 404 if pedalboard or connection doesn't exist.",
+        "operationId": "remove_connection_api_v1_pedalboards__pedalboard_id__connections__connection_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "connection_id",
+            "required": true,
+            "schema": {
+              "title": "Connection Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Connection",
+        "tags": [
+          "Connections"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/effects": {
+      "get": {
+        "description": "List all effect instances on a pedalboard.\n\nRaises:\n    HTTPException: 404 if pedalboard doesn't exist.",
+        "operationId": "list_effect_instances_api_v1_pedalboards__pedalboard_id__effects_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "$ref": "#/components/schemas/EffectInstance"
+                  },
+                  "title": "Response List Effect Instances Api V1 Pedalboards  Pedalboard Id  Effects Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Effect Instances",
+        "tags": [
+          "Effects"
+        ]
+      },
+      "post": {
+        "description": "Add an effect instance to a pedalboard.\n\nInstantiates the plugin in mod-host and records it in the pedalboard state.\n\nRaises:\n    HTTPException: 404 if pedalboard or effect URI not found.\n    HTTPException: 500 if plugin instantiation fails.",
+        "operationId": "create_effect_instance_api_v1_pedalboards__pedalboard_id__effects_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateEffectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EffectInstance"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Effect Instance",
+        "tags": [
+          "Effects"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/effects/{effect_id}": {
+      "delete": {
+        "description": "Remove an effect instance and all its connections.\n\nRemoves the plugin from mod-host and updates pedalboard state.\n\nRaises:\n    HTTPException: 404 if pedalboard or effect instance doesn't exist.",
+        "operationId": "remove_effect_instance_api_v1_pedalboards__pedalboard_id__effects__effect_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "effect_id",
+            "required": true,
+            "schema": {
+              "title": "Effect Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Remove Effect Instance",
+        "tags": [
+          "Effects"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/effects/{effect_id}/parameters": {
+      "get": {
+        "description": "Get all parameter values for an effect instance.\n\nReturns the effect instance's parameters dict directly.\n\nRaises:\n    HTTPException: 404 if pedalboard or effect instance doesn't exist.",
+        "operationId": "get_parameters_api_v1_pedalboards__pedalboard_id__effects__effect_id__parameters_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "effect_id",
+            "required": true,
+            "schema": {
+              "title": "Effect Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "$ref": "#/components/schemas/NumberParameter"
+                      },
+                      {
+                        "$ref": "#/components/schemas/FilenameParameter"
+                      }
+                    ]
+                  },
+                  "title": "Response Get Parameters Api V1 Pedalboards  Pedalboard Id  Effects  Effect Id  Parameters Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Parameters",
+        "tags": [
+          "Parameters"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/effects/{effect_id}/parameters/{param_name}": {
+      "get": {
+        "description": "Get a specific parameter value.\n\nRaises:\n    HTTPException: 404 if pedalboard, effect, or parameter doesn't exist.",
+        "operationId": "get_parameter_api_v1_pedalboards__pedalboard_id__effects__effect_id__parameters__param_name__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "effect_id",
+            "required": true,
+            "schema": {
+              "title": "Effect Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "param_name",
+            "required": true,
+            "schema": {
+              "title": "Param Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/NumberParameter"
+                    },
+                    {
+                      "$ref": "#/components/schemas/FilenameParameter"
+                    }
+                  ],
+                  "title": "Response Get Parameter Api V1 Pedalboards  Pedalboard Id  Effects  Effect Id  Parameters  Param Name  Get"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Parameter",
+        "tags": [
+          "Parameters"
+        ]
+      },
+      "put": {
+        "description": "Set a parameter value on an effect instance.\n\nSends the parameter update to mod-host and persists to pedalboard state.\nUses patch_set for filename parameters, param_set for number parameters.\n\nRaises:\n    HTTPException: 404 if pedalboard or effect instance doesn't exist.\n    HTTPException: 404 if parameter doesn't exist on effect.\n    HTTPException: 400 if value violates constraints or is missing.\n    HTTPException: 500 if parameter update fails in mod-host.",
+        "operationId": "set_parameter_api_v1_pedalboards__pedalboard_id__effects__effect_id__parameters__param_name__put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "effect_id",
+            "required": true,
+            "schema": {
+              "title": "Effect Id",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "param_name",
+            "required": true,
+            "schema": {
+              "title": "Param Name",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetParameterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Set Parameter",
+        "tags": [
+          "Parameters"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/ports": {
+      "get": {
+        "description": "List all ports available on the pedalboard.\n\nCombines effect instance ports with system ports (input/output jacks).\nSystem ports are discovered from JACK configuration.\n\nRaises:\n    HTTPException: 404 if pedalboard doesn't exist.",
+        "operationId": "list_ports_api_v1_pedalboards__pedalboard_id__ports_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Port"
+                  },
+                  "title": "Response List Ports Api V1 Pedalboards  Pedalboard Id  Ports Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Ports",
+        "tags": [
+          "Ports"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/rename": {
+      "put": {
+        "description": "Rename a pedalboard.\n\nRaises:\n    HTTPException: 404 if pedalboard ID doesn't exist.\n    HTTPException: 400 if name is missing or invalid.",
+        "operationId": "rename_pedalboard_api_v1_pedalboards__pedalboard_id__rename_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenamePedalboardRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pedalboard"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Pedalboard",
+        "tags": [
+          "Pedalboards"
+        ]
+      }
+    },
+    "/api/v1/pedalboards/{pedalboard_id}/select": {
+      "put": {
+        "description": "Select a pedalboard to make it the current one.\n\nRaises:\n    HTTPException: 404 if pedalboard ID doesn't exist.",
+        "operationId": "select_pedalboard_api_v1_pedalboards__pedalboard_id__select_put",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "pedalboard_id",
+            "required": true,
+            "schema": {
+              "title": "Pedalboard Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Select Pedalboard",
+        "tags": [
+          "Pedalboards"
+        ]
+      }
+    },
+    "/health": {
+      "get": {
+        "description": "Health check endpoint.\n\nReturns a simple status check for container orchestration and monitoring.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Health Check Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health Check",
+        "tags": [
+          "Other"
+        ]
+      }
+    }
+  }
+}

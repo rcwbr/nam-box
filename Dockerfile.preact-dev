@@ -1,0 +1,20 @@
+# Dockerfile.preact-dev — context should be ./services/web
+FROM node:22
+
+WORKDIR /app
+
+# Copy and install deps
+COPY preact/package.json preact/package-lock.json ./
+RUN npm ci --no-audit --no-fund
+
+# Copy source
+COPY preact/ ./
+
+# Install full Chromium (not just headless shell) for Playwright
+RUN npx playwright install --with-deps chromium 2>&1 | tail -5
+
+EXPOSE 4322 8001
+
+# Use the dev config (HTTP proxy to mock-api) via ASTRO_CONFIG_FILE
+# mock-api.js uses CommonJS but package.json has "type": "module"
+CMD ["sh", "-c", "node -e \"require('./mock-api.js')\" & npx astro dev --host 0.0.0.0 --port 4322 --config astro.config.dev.mjs"]

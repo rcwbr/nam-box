@@ -105,7 +105,7 @@
 }
 
 .lcd-select-wrapper {
-  @apply text-lcd-200 font-mono inline-flex items-center justify-between w-full;
+  @apply text-lcd-200 inline-flex items-center justify-between w-full;
 }
 
 .lcd-select {
@@ -123,7 +123,7 @@
 }
 
 .lcd-select-option {
-  @apply px-2 py-1 text-lcd-200 font-mono text-xs cursor-pointer select-none;
+  @apply px-2 py-1 text-lcd-200 text-xs cursor-pointer select-none;
 }
 
 .lcd-select-option:hover {

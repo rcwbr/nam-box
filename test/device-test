@@ -2,11 +2,12 @@
 
 set -e
 
-docker buildx bake --allow=fs=/var/buildx-cache effects proxy web $@
+docker buildx bake --allow=fs=/var/buildx-cache effects proxy web files $@
 
 MDLH_ARGS="${MDLH_ARGS:-}$*"
 
 ./mender-docker-lifecycle-helper \
+  --no-delta \
   --platform linux/arm64 \
   --manifest-name nam-box \
   --wait-for-deploy \
@@ -15,6 +16,7 @@ MDLH_ARGS="${MDLH_ARGS:-}$*"
   --service-file proxy ./proxy.tar \
   --service-file web ./web.tar \
   --service-file effects ./effects.tar \
+  --service-file model ./files.tar \
   --log-level DEBUG \
   --cache-limit-percent 20.0 \
   ${MDLH_ARGS} \

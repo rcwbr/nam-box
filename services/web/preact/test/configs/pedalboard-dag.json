@@ -1,0 +1,18 @@
+{
+  "name": "PedalboardDAG render verification",
+  "url": "https://localhost/test-pedalboard-dag",
+  "wait_for": ".react-flow",
+  "selectors": {
+    "canvas": ".react-flow",
+    "nodes": ".react-flow__node",
+    "edges": ".react-flow__edge",
+    "handles": ".react-flow__handle"
+  },
+  "evaluate": "{ canvas: !!document.querySelector('.react-flow'), nodes: document.querySelectorAll('.react-flow__node').length, edges: document.querySelectorAll('.react-flow__edge').length, handles: document.querySelectorAll('.react-flow__handle').length, edgePaths: document.querySelectorAll('.react-flow__edge path').length }",
+  "assert": {
+    "canvas": 1,
+    "edges": 3
+  },
+  "settle_ms": 3000,
+  "screenshot": "test/screenshots/pedalboard-dag.png"
+}

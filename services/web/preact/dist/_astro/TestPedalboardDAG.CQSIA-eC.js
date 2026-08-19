@@ -1,0 +1,1 @@
+import{ag as r,af as a,ah as t}from"./PedalboardDAG.Boa7JEg3.js";import{u as e}from"./index.BnJC0vup.js";const i=new r({defaultOptions:{queries:{staleTime:5e3,retry:!1}}});function d(){return e(t,{client:i,children:e(a,{pedalboardId:1})})}export{d as default};

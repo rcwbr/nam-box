@@ -10,6 +10,7 @@ services:
       - NET_ADMIN
     volumes:
       - bluetooth-dbus:/var/run/dbus
+    restart: unless-stopped
 
   bluetooth-manager:
     <<: *common
@@ -30,9 +31,9 @@ services:
       - "traefik.http.routers.bluetooth-manager.priority=100"
       - "traefik.http.routers.bluetooth-manager.service=bluetooth-manager@docker"
       - "traefik.http.services.bluetooth-manager.loadbalancer.server.port=8000"
-
     networks:
       - proxy
+    restart: unless-stopped
 
 volumes:
   bluetooth-dbus:

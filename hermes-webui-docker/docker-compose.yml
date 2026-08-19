@@ -1,0 +1,76 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Hermes WebUI — single-container Docker Compose (generic, reusable)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This compose file is intentionally generic. It can be dropped into ANY project
+# that uses GitHub Codespaces / dev containers and wants the Hermes WebUI to
+# auto-start on container startup with a **publicly accessible** port.
+#
+# Every project-specific value is a variable (see .env.example). Copy
+# .env.example to .env and customise — no edits to this file are needed.
+#
+# QUICK START:
+#   1. cp hermes-webui-docker/.env.example hermes-webui-docker/.env
+#   2. Edit .env → set WEBUI_PORT, HERMES_HOME_HOST_PATH, etc.
+#   3. On Codespaces: devcontainer.json starts this stack automatically.
+#   4. Or standalone:  docker compose -f hermes-webui-docker/docker-compose.yml up -d --build
+#   5. Open http://<codespace-ip>:<WEBUI_PORT>
+#
+# The built image extends the stock hermes-webui image with the Docker CLI so
+# the agent can run `docker build` / `docker run` / `docker compose` from inside
+# the container via a bind-mounted host Docker socket.
+
+services:
+  hermes-webui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      # args:
+      #   # - WEBUI_BASE_IMAGE=ghcr.io/nesquena/hermes-webui:0.52.166
+      #   - DOCKER_GID=${DOCKER_GID:-800}
+      #   - WANTED_UID=${WANTED_UID:-1000}
+      #   - WANTED_GID=${WANTED_GID:-1000}
+    image: ${WEBUI_LOCAL_IMAGE:-hermes-webui:local}
+    container_name: ${WEBUI_CONTAINER_NAME:-hermes-webui}
+    ports:
+      # ─── PORT FORWARDING ──────────────────────────────────────────────────
+      # Format: "HOST_PORT:CONTAINER_PORT"
+      # This makes the port **publicly accessible** in Codespaces — anyone with
+      # the URL can reach it.  (To restrict to localhost/private, set
+      # WEBUI_HOST_PORT to 127.0.0.1:PORT instead — see .env.example.)
+      #
+      # The host port is WEBUI_HOST_PORT (defaults to WEBUI_PORT).
+      - ${WEBUI_HOST_PORT:-0.0.0.0:8787}:${WEBUI_PORT:-8787}
+    volumes:
+      # ─── Hermes home directory ────────────────────────────────────────────
+      # Mount your Hermes home directory into the container.
+      # The container auto-detects host UID/GID from this volume's ownership.
+      - ${HERMES_HOME_HOST_PATH:-${HOME}/.hermes}:/home/hermeswebui/.hermes
+      # ─── Workspace ────────────────────────────────────────────────────────
+      # The workspace directory shown on first launch.
+      - ${HERMES_WORKSPACE_HOST_PATH:-${HOME}/workspace}:/workspace
+      # ─── Docker CLI ──────────────────────────────────────────────────────
+      # Bind-mount the host Docker socket so the agent can build/run images
+      # and compose stacks from inside the container.
+      # On Codespaces the socket lives at /var/run/docker.sock.
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      # ─── WebUI bind address & port ──────────────────────────────────────
+      - HERMES_WEBUI_HOST=0.0.0.0
+      - HERMES_WEBUI_PORT=${WEBUI_PORT:-8787}
+      # ─── State directory (sessions, workspaces, etc.) ────────────────────
+      - HERMES_WEBUI_STATE_DIR=/home/hermeswebui/.hermes/webui
+      # ─── Optional: set a password for remote access ──────────────────────
+      # - HERMES_WEBUI_PASSWORD=${HERMES_WEBUI_PASSWORD}
+      # ─── Docker CLI ──────────────────────────────────────────────────────
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DOCKER_TLS_VERIFY=0
+      # ─── Bind-mount permission handling (optional) ───────────────────────
+      # When mounting an EXISTING ~/.hermes directory, the WebUI's startup
+      # credential-permission fixer can clash with host file modes (e.g. 0640
+      # group-readable .env files).
+      # Set HERMES_SKIP_CHMOD=1 to bypass the fixer entirely, OR set
+      # HERMES_HOME_MODE=0640 to allow group bits while stripping world-readable.
+      # - HERMES_SKIP_CHMOD=1
+      # - HERMES_HOME_MODE=0640
+    restart: unless-stopped

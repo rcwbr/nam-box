@@ -1,6 +1,9 @@
 {
   "containerEnv": {
-    "DEVCONTAINER_HOST_WORKSPACE_MOUNT": "/var/lib/docker/codespacemount/workspace/nam-box"
+    "DEVCONTAINER_HOST_WORKSPACE_MOUNT": "/var/lib/docker/codespacemount/workspace/nam-box",
+    "DOCKER_HOST": "unix:///var/run/docker.sock",
+    "DOCKER_TLS_VERIFY": "0",
+    "DOCKER_API_VERSION": "1.43"
   },
   "customizations": {
     "vscode": {
@@ -27,5 +30,6 @@
     }
   ],
   "name": "nam-box",
-  "onCreateCommand": "/opt/devcontainers/on_create_command"
+  "onCreateCommand": "/opt/devcontainers/on_create_command",
+  "postStartCommand": "/opt/devcontainers/post_start_commands/hermes-webui"
 }

@@ -1,0 +1,38 @@
+# Dockerfile.hermes-webui-docker (DEPRECATED — kept for backward compatibility)
+#
+# The canonical, generic Dockerfile now lives at:
+#   hermes-webui-docker/Dockerfile
+#
+# It extends the same base image (ghcr.io/nesquena/hermes-webui) with the
+# Docker CLI, but adds:
+#   - Architecture-aware Docker CLI installation (multi-stage FROM docker:*-cli)
+#   - UID/GID remapping for correct bind-mount file ownership
+#   - Fully parameterized via build args (WEBUI_BASE_IMAGE, DOCKER_GID, etc.)
+#
+# To build with the new generic Dockerfile:
+#   docker build -f hermes-webui-docker/Dockerfile -t hermes-webui:local hermes-webui-docker/
+#
+# This file is kept so any remaining references to the old path don't break.
+FROM ghcr.io/nesquena/hermes-webui:0.52.166
+
+RUN set -eux; \
+    dpkgArch="$(dpkg --print-architecture 2>/dev/null || true)"; \
+    case "$dpkgArch" in \
+      amd64|arm64) dockerArch="$dpkgArch" ;; \
+      arm*)        dockerArch="armv6-musl" ;; \
+      *)           dockerArch="amd64" ;; \
+    esac; \
+    curl -fsSL "https://download.docker.com/linux/static/stable/${dockerArch}/docker-27.3.0.tgz" \
+      -o /tmp/docker.tgz && \
+    tar -xzf /tmp/docker.tgz -C /tmp && \
+    cp /tmp/docker/docker /usr/local/bin/docker && \
+    chmod +x /usr/local/bin/docker && \
+    rm -rf /tmp/docker.tgz /tmp/docker && \
+    docker --version && \
+    echo "Docker CLI installed successfully."
+
+# NOTE: The stock WebUI image already sets HERMES_WEBUI_HOST, HERMES_WEBUI_PORT,
+# and WANTED_UID/WANTED_GID via environment defaults. Those are overridden at
+# runtime in the compose file. For the enhanced generic Dockerfile with
+# docker-buildx + docker-compose plugins + UID/GID remapping, use:
+#   hermes-webui-docker/Dockerfile

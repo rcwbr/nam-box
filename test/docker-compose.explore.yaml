@@ -1,0 +1,46 @@
+services:
+  mod-host:
+    image: ghcr.io/rcwbr/nam-box/effects:local
+    devices:
+      - "/dev/snd:/dev/snd"
+    volumes:
+      - "/dev/snd:/dev/snd"
+      - effects-state:/var/mod
+      - effects-models:/opt/nam/models
+    cap_add:
+      - SYS_NICE
+      - SYS_RAWIO
+      - IPC_LOCK
+    security_opt:
+      - seccomp=unconfined
+    privileged: true
+    environment:
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/shm/dbus-session
+      - JACKD_ARGS=-d dummy
+    shm_size: 700M
+    ulimits:
+      memlock: -1
+    # Override entrypoint to run only mod-host (skip mod-ui), create test model file
+    # Feedback port 5556 enabled for patch_get responses
+    entrypoint: ["/bin/bash", "-c", "dbus-daemon --session --fork --address=unix:path=/dev/shm/dbus-session && jackd -d dummy & sleep 2 && echo '{\"version\":\"test\"}' > /opt/nam/models/test.nam && mod-host -n -p 5555 -f 5556"]
+    networks:
+      - modnet
+
+  explorer:
+    image: python:3.10-slim
+    volumes:
+      - ./exploration-scripts:/scripts
+    working_dir: /scripts
+    command: ["sleep", "infinity"]
+    depends_on:
+      - mod-host
+    networks:
+      - modnet
+
+volumes:
+  effects-state:
+  effects-models:
+
+networks:
+  modnet:
+    driver: bridge

@@ -1,0 +1,15 @@
+{
+  "name": "Component render smoke test",
+  "url": "https://localhost/my-component",
+  "wait_for": ".my-container",
+  "selectors": {
+    "container": ".my-container",
+    "items": ".my-item"
+  },
+  "evaluate": "{ ready: document.querySelector('.my-container')?.classList.contains('ready'), count: document.querySelectorAll('.my-item').length }",
+  "assert": {
+    "container": 1
+  },
+  "settle_ms": 2000,
+  "screenshot": null
+}

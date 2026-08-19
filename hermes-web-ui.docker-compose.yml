@@ -1,0 +1,24 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# Hermes WebUI — Legacy Wrapper (DEPRECATED)
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# This file is kept for backward compatibility. The canonical, generic
+# configuration now lives in hermes-webui-docker/docker-compose.yml.
+#
+# The generic config supports all the features of this file (and more):
+#   - Configurable image, tag, port, and host paths via .env
+#   - Public port forwarding (0.0.0.0:PORT) by default
+#   - UID/GID remapping for bind-mount file ownership
+#   - Docker CLI with docker-buildx + docker-compose plugins
+#
+# Usage (new projects should use this instead):
+#   cd hermes-webui-docker
+#   cp .env.example .env
+#   docker compose up -d --build
+#
+# This wrapper simply delegates to the generic compose file.
+# It exists so existing scripts/ workflows don't break.
+
+include:
+  - path: hermes-webui-docker/docker-compose.yml
+    env_file: hermes-web-ui.env

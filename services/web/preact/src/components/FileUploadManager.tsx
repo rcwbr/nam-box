@@ -68,12 +68,12 @@ export default function FileUploadManager() {
     <FilesContext.Provider value={filesState}>
       <div class="space-y-3">
         <h2 class="text-xs lcd-text text-center uppercase tracking-widest">Model Files</h2>
-        <div class="space-y-1 pr-1 max-h-48 overflow-y-auto">
+        <div class="space-y-1 pr-1">
           {filesState.length < 1 ? (
             <p class="text-lcd-400 text-xs">No model files found</p>
           ) : (
             filesState.map((file: FileInfo) => (
-              <div key={file.name} class="flex items-center justify-between p-2 bg-lcd-700 rounded-sm">
+              <div key={file.name} class="flex items-center justify-between p-2 bg-black border-1 rounded-sm">
                 <div>
                   <p class="text-lcd-200 font-bold text-xs">{file.name}</p>
                 </div>

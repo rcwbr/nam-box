@@ -1,0 +1,50 @@
+services:
+  mod-host:
+    image: ghcr.io/rcwbr/nam-box/effects:local
+    # /dev/snd Device Mocking Configuration:
+    # - When /dev/snd exists on the host, mount it for real audio hardware access
+    # - When /dev/snd is missing, JACK dummy mode provides virtual audio ports
+    # - The entrypoint below uses: jackd --no-realtime -d dummy (works without /dev/snd)
+    # - System ports (capture_1/2, playback_1/2) are provided by JACK dummy driver
+    #
+    # To enable real audio hardware:
+    # - Uncomment the devices and volumes sections
+    # - Ensure /dev/snd exists on the host system
+    # - Remove -d dummy from JACKD_ARGS to use real backend
+    #
+    devices:
+      - "/dev/snd:/dev/snd"
+    volumes:
+      - mod-host-state:/var/mod
+      - mod-host-models:/opt/nam/models
+      - ./lv2:/opt/lv2-export
+    cap_add:
+      - SYS_NICE
+      - SYS_RAWIO
+      - IPC_LOCK
+    security_opt:
+      - seccomp=unconfined
+    privileged: true
+    environment:
+      - DBUS_SESSION_BUS_ADDRESS=unix:path=/dev/shm/dbus-session
+      - JACKD_ARGS=--no-realtime -d dummy -r 48000 -p 512
+    shm_size: 700M
+    ulimits:
+      memlock: -1
+    # Ports for container - expose container ports (testcontainers maps dynamically)
+    ports:
+      - "5555"
+      - "5556"
+    # Start JACK in dummy mode, which provides virtual audio ports without /dev/snd
+    # The dummy driver creates system:capture_1/2 and system:playback_1/2 ports
+    entrypoint: ["/bin/bash", "-c", "dbus-daemon --session --fork --address=unix:path=/dev/shm/dbus-session && (jackd --no-realtime -d dummy -r 48000 -p 512 & sleep 2 || true) && echo '{\"version\":\"test\"}' > /opt/nam/models/test.nam && cp -r /opt/lv2/* /opt/lv2-export/ && mod-host -n -p 5555 -f 5556"]
+    networks:
+      - modnet
+
+volumes:
+  mod-host-state:
+  mod-host-models:
+
+networks:
+  modnet:
+    driver: bridge

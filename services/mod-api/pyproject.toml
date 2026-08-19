@@ -1,0 +1,28 @@
+[project]
+name = "mod-api"
+version = "0.1.0"
+description = "API service for mod-host control"
+requires-python = ">=3.10"
+dependencies = [
+    "rdflib>=6.0.0",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.0",
+    "testcontainers>=4.0",
+    "httpx>=0.24.0",
+    "pydantic>=2.0.0",
+]
+api = [
+    "fastapi>=0.100.0",
+    "uvicorn[standard]>=0.22.0",
+]
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]

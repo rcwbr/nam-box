@@ -1,4 +1,3 @@
-
 entryPoints:
   web:
     address: ":80"
@@ -12,6 +11,11 @@ entryPoints:
     address: ":443"
     http:
       tls: {}
+      sanitizePath: false
+
+log:
+  level: DEBUG
+  format: json
 
 providers:
   docker:

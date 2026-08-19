@@ -4,8 +4,9 @@ x-common: &common
 services:
   web:
     <<: *common
-    image: web-builder
-    entrypoint: [npm, run, dev]
+    # image: web-builder
+    image: node:24-alpine
+    entrypoint: [npm, run, dev, '--']
     labels:
       - "traefik.enable=true"
       # Catch-all router - lowest priority so it doesn't catch /api/effects or /api/bluetooth-manager
@@ -15,8 +16,9 @@ services:
       - "traefik.http.routers.web.entrypoints=websecure"
       - "traefik.http.routers.web.priority=10"
       - "traefik.http.routers.web.service=web@docker"
-      - "traefik.http.services.web.loadbalancer.server.port=8000"
+      - "traefik.http.services.web.loadbalancer.server.port=80"
     networks:
       - proxy
+    working_dir: /app
     volumes:
-      - ../services/web/preact:/app
+      - ${DEVCONTAINER_HOST_WORKSPACE_MOUNT}/services/web/preact:/app

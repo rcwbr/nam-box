@@ -34,8 +34,7 @@ target "effects" {
   inherits = ["common"]
   context  = "services/effects"
   contexts = {
-    github-mod-host = "https://github.com/rcwbr/mod-host.git#2025-12-10"
-    github-mod-ui   = "https://github.com/rcwbr/mod-ui.git#2025-12-10"
+    github-mod-host = "https://github.com/mod-audio/mod-host.git"
   }
   dockerfile = "Dockerfile"
   tags       = ["ghcr.io/rcwbr/nam-box/effects:local"]
